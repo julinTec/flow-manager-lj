@@ -29,7 +29,7 @@ import {
 
 const mainItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Comercial", url: "/comercial", icon: ShoppingCart },
+  { title: "Devis", url: "/comercial", icon: ShoppingCart },
   { title: "Financeiro", url: "/financeiro", icon: DollarSign },
   { title: "Conciliação", url: "/conciliacao", icon: ArrowLeftRight },
   { title: "Operação", url: "/operacao", icon: Settings2 },
