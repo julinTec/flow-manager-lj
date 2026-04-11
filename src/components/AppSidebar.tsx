@@ -63,7 +63,7 @@ export function AppSidebar() {
               <span className="text-xs font-bold text-sidebar-primary-foreground">LJ</span>
             </div>
           ) : (
-            <img src={logo} alt="Lundgaard Jensen" className="h-auto w-[140px]" />
+            <img src={logoBanner} alt="Lundgaard Jensen" className="h-auto w-[140px]" />
           )}
         </div>
       </SidebarHeader>
