@@ -605,6 +605,7 @@ export type Database = {
         | "operacao"
         | "gestao"
         | "bi_viewer"
+        | "gerencial"
       conciliation_status: "pendente" | "conciliado" | "divergente" | "ignorado"
       devis_status:
         | "rascunho"
@@ -756,6 +757,7 @@ export const Constants = {
         "operacao",
         "gestao",
         "bi_viewer",
+        "gerencial",
       ],
       conciliation_status: ["pendente", "conciliado", "divergente", "ignorado"],
       devis_status: [
