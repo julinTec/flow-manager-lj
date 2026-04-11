@@ -53,7 +53,7 @@ export default function Admin() {
     },
   });
 
-  const getUserRole = (userId: string) => {
+  const getUserRole = (userId: string): string => {
     const r = roles.find((r) => r.user_id === userId);
     return r?.role ?? "—";
   };
