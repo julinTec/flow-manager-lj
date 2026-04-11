@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Building2 } from "lucide-react";
+import logo from "@/assets/logo.svg";
 
 export default function Auth() {
   const [email, setEmail] = useState("");
@@ -30,11 +30,11 @@ export default function Auth() {
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-primary">
-            <Building2 className="h-7 w-7 text-primary-foreground" />
+          <div className="mx-auto mb-4">
+            <img src={logo} alt="Lundgaard Jensen" className="h-auto w-[200px]" />
           </div>
-          <CardTitle className="font-display text-2xl">Sistema de Gestão</CardTitle>
-          <CardDescription>Entre na sua conta</CardDescription>
+          <CardTitle className="font-display text-2xl">Lundgaard Hub</CardTitle>
+          <CardDescription>Faça login</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
