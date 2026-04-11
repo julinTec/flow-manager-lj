@@ -12,7 +12,7 @@ import {
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import logo from "@/assets/logo.svg";
+import logoBanner from "@/assets/logo-banner.png";
 import {
   Sidebar,
   SidebarContent,
