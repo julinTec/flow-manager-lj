@@ -8,7 +8,6 @@ import {
   BarChart3,
   Shield,
   LogOut,
-  ChevronLeft,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -38,17 +37,21 @@ const mainItems = [
 const managementItems = [
   { title: "Gestão", url: "/gestao", icon: Building2 },
   { title: "Consolidação / BI", url: "/bi", icon: BarChart3 },
-  { title: "Administração", url: "/admin", icon: Shield },
+  { title: "Administração", url: "/admin", icon: Shield, adminOnly: true },
 ];
 
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
-  const { user, signOut } = useAuth();
+  const { user, userRole, signOut } = useAuth();
 
   const isActive = (path: string) =>
     path === "/" ? location.pathname === "/" : location.pathname.startsWith(path);
+
+  const filteredManagement = managementItems.filter(
+    (item) => !item.adminOnly || userRole === "admin"
+  );
 
   return (
     <Sidebar collapsible="icon">
@@ -91,7 +94,7 @@ export function AppSidebar() {
           <SidebarGroupLabel>Gestão</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {managementItems.map((item) => (
+              {filteredManagement.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={isActive(item.url)}>
                     <NavLink to={item.url}>
