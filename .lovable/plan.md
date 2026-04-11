@@ -1,52 +1,24 @@
 
 
-# Plano: Gestão de Usuários na Administração
+# Plano: Substituir logo pelo SVG Lundgaard Jensen
 
 ## Resumo
-Transformar a página de Administração para que o admin possa criar, editar e remover usuários. Remover a opção de auto-cadastro (signup) da tela de login. Simplificar os perfis para apenas dois: **admin** e **gerencial**. O perfil "admin" vê a página Administração; o perfil "gerencial" não.
+Copiar o SVG enviado para `src/assets/logo.svg` e usá-lo na tela de login e na sidebar, substituindo o ícone genérico `Building2`.
 
 ## Alterações
 
-### 1. Banco de Dados
-- Criar uma Edge Function `manage-users` que usa a **service_role key** para:
-  - **Criar usuário**: `supabase.auth.admin.createUser()` com email + senha + nome, depois inserir role na `user_roles`
-  - **Deletar usuário**: `supabase.auth.admin.deleteUser()` + cascade remove profile e roles
-  - **Atualizar role**: update na `user_roles`
-- Atualizar o enum `app_role` via migração para conter apenas `admin` e `gerencial` (ou manter os existentes e usar apenas esses dois no UI)
-- Atualizar o trigger `handle_new_user_role` para não atribuir `admin` automaticamente (já que o admin cria os usuários com o perfil desejado)
+### 1. Copiar o arquivo
+- `user-uploads://logo-svg-lundgaard-jensen.svg` → `src/assets/logo.svg`
 
-### 2. Edge Function `manage-users`
-- Endpoint com ações: `create`, `update-role`, `delete`
-- Valida que o chamador é admin (verifica JWT + has_role)
-- Usa `SUPABASE_SERVICE_ROLE_KEY` para operações admin no auth
+### 2. Tela de Login (`src/pages/Auth.tsx`)
+- Remover o ícone `Building2` dentro do quadrado azul
+- Importar o SVG como componente e exibir a logo centralizada (largura ~200px)
+- Trocar o título "Sistema de Gestão" por "Lundgaard Hub"
+- Manter subtítulo "Faça login"
 
-### 3. Página Auth (Login)
-- Remover a opção de "Cadastre-se" e o formulário de signup
-- Manter apenas login com email/senha
-
-### 4. Página Admin
-- Adicionar botão "Novo Usuário" que abre um dialog/modal com:
-  - Nome completo, Email, Senha, Perfil (admin ou gerencial)
-- Na tabela de usuários, adicionar coluna "Ações" com:
-  - Botão editar (altera perfil)
-  - Botão excluir (com confirmação)
-- Cada linha mostra nome, email, perfil e ações
-
-### 5. Sidebar — Controle de visibilidade
-- Esconder o item "Administração" para usuários com perfil `gerencial`
-- Buscar o role do usuário logado e filtrar o menu
-
-### 6. Proteção de Rota
-- No `App.tsx`, proteger a rota `/admin` para permitir apenas usuários com role `admin`
-
-### 7. RLS — Perfis
-- Atualizar RLS da tabela `profiles` para que admins possam ver todos os perfis (necessário para listar usuários)
-
-## Ordem de execução
-1. Migração DB (RLS profiles, ajuste trigger)
-2. Edge Function `manage-users`
-3. Atualizar Auth.tsx (remover signup)
-4. Reescrever Admin.tsx (CRUD de usuários)
-5. Atualizar Sidebar (esconder Admin para gerencial)
-6. Proteger rota /admin
+### 3. Sidebar (`src/components/AppSidebar.tsx`)
+- Importar o SVG da logo
+- No header da sidebar:
+  - **Expandida**: exibir a logo com largura adequada (~140px), remover o quadrado azul com ícone e o texto "Gestão ERP / v1.0"
+  - **Colapsada**: exibir apenas as iniciais "LJ" em um quadrado pequeno (mantendo o estilo atual do container 9x9)
 
