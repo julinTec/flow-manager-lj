@@ -12,6 +12,7 @@ import {
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import logo from "@/assets/logo.svg";
 import {
   Sidebar,
   SidebarContent,
@@ -56,17 +57,13 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border px-4 py-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary">
-            <Building2 className="h-5 w-5 text-sidebar-primary-foreground" />
-          </div>
-          {!collapsed && (
-            <div className="flex flex-col">
-              <span className="font-display text-sm font-semibold text-sidebar-foreground">
-                Gestão ERP
-              </span>
-              <span className="text-xs text-sidebar-foreground/60">v1.0</span>
+        <div className="flex items-center justify-center">
+          {collapsed ? (
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary">
+              <span className="text-xs font-bold text-sidebar-primary-foreground">LJ</span>
             </div>
+          ) : (
+            <img src={logo} alt="Lundgaard Jensen" className="h-auto w-[140px]" />
           )}
         </div>
       </SidebarHeader>
