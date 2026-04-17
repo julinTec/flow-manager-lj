@@ -1,75 +1,68 @@
 
-# Plano: Pipeline Kanban para Devis
+# Plano: Geração assistida de proposta com IA no Devis
 
 ## Resumo
-Evoluir o módulo Devis com 11 novos status de pipeline comercial, cores visuais e uma visualização Kanban com drag-and-drop entre colunas.
+Adicionar um campo "Relatório da reunião" e um botão "Gerar proposta automaticamente" que chama uma edge function usando Lovable AI. O resultado aparece num bloco "Sugestões da IA" com campos editáveis — nada é sobrescrito automaticamente; o usuário decide aceitar cada sugestão.
 
-## 1. Banco de Dados (migração)
+## 1. Banco de dados (migração)
 
-Atualizar enum `devis_status` adicionando os novos valores (mantendo os antigos para compatibilidade):
-- `reuniao_realizada`
-- `proposta_em_geracao`
-- `aguardando_validacao`
-- `pronta_para_envio`
-- `enviada_ao_cliente`
-- `aguardando_aceite`
-- `aceita`
-- `rejeitada`
-- `cobranca_pendente`
-- `entrada_recebida`
-- `enviado_para_operacao`
+Adicionar em `devis`:
+- `meeting_report` (text) — relatório longo da reunião (insumo para IA)
+- `service_type` (text)
+- `responsible_sector` (text)
+- `scope_description` (text)
+- `proposal_structure` (text)
 
-(Postgres: `ALTER TYPE devis_status ADD VALUE IF NOT EXISTS ...` para cada um.)
+Todos nullable, sem default.
 
-## 2. Mapa de status (centralizado)
+## 2. Edge Function `generate-devis-proposal`
 
-Criar `src/lib/devisStatus.ts` com:
-- Lista ordenada dos 11 status do pipeline
-- Labels em PT-BR
-- Classes Tailwind de cor por status (badges + borda da coluna kanban), ex.:
-  - reuniao_realizada → slate
-  - proposta_em_geracao → blue
-  - aguardando_validacao → amber
-  - pronta_para_envio → indigo
-  - enviada_ao_cliente → cyan
-  - aguardando_aceite → yellow
-  - aceita → green
-  - rejeitada → red
-  - cobranca_pendente → orange
-  - entrada_recebida → emerald
-  - enviado_para_operacao → violet
+Arquivo: `supabase/functions/generate-devis-proposal/index.ts`
+- Recebe `{ meeting_report, client_name?, total_amount? }`
+- Chama Lovable AI Gateway (`google/gemini-3-flash-preview`) via **tool calling** para garantir JSON estruturado com:
+  - `service_type` (string)
+  - `responsible_sector` (string) — ex: Engenharia, Consultoria, TI, Jurídico
+  - `scope_description` (string, markdown)
+  - `proposal_structure` (string, markdown com seções: Objetivo, Escopo, Entregáveis, Cronograma, Investimento)
+- Trata 429/402 e retorna erros amigáveis
+- System prompt em PT-BR, corporativo, conciso
+- `verify_jwt = true` (usuário autenticado); usa `LOVABLE_API_KEY` (já disponível via Cloud)
 
-Usar este mapa em `Comercial.tsx` e `DevisDetail.tsx` para substituir os atuais `statusLabels` / `devisStatusColors`.
+## 3. Tela de Detalhe (`src/pages/DevisDetail.tsx`)
 
-## 3. Página `Comercial.tsx` — adicionar visualização Kanban
+Na seção editável, adicionar:
 
-Dentro da aba **Devis**, adicionar um sub-toggle (Tabs ou ToggleGroup): **Lista** | **Kanban**.
+### a) Campo "Relatório da reunião"
+- `Textarea` (rows=8), acima do "Resumo da reunião"
+- Salvo em `meeting_report`
 
-- **Lista**: mantém a tabela atual, mas com novas opções de status no filtro e no select de criação.
-- **Kanban**: nova view com colunas roláveis horizontalmente.
+### b) Botão "Gerar proposta automaticamente"
+- Abaixo do campo, com ícone `Sparkles`
+- Desabilitado se `meeting_report` vazio
+- Loading state enquanto gera
 
-## 4. Componente Kanban (`src/components/devis/DevisKanban.tsx`)
+### c) Bloco "Sugestões da IA" (aparece após resposta)
+Card destacado (`border-primary/40 bg-primary/5`) com título "Sugestões da IA" e ícone Sparkles. Contém 4 blocos, cada um com:
+- Label do campo
+- Textarea editável pré-preenchido com sugestão
+- Botão "Aceitar" (aplica ao form principal) e "Descartar"
+- Botão geral "Aceitar todas"
 
-- Layout: `flex gap-4 overflow-x-auto` com 11 colunas de largura fixa (~280px).
-- Cada coluna mostra: título (label do status com cor), contador, lista de cards.
-- Card mostra: Cliente, Valor (BRL), Responsável (nome), Data da reunião. Clique abre `/comercial/devis/:id`.
-- Drag-and-drop com **@dnd-kit/core** + **@dnd-kit/sortable** (já comum no stack; adicionar via npm).
-- Ao soltar em outra coluna: chamar `supabase.from('devis').update({ status: novoStatus }).eq('id', cardId)` e invalidar React Query (atualização otimista).
-- Respeitar filtros ativos (cliente, período) — status filter fica desabilitado/ignorado no modo Kanban.
+Os valores aceitos populam os novos campos do form (`service_type`, `responsible_sector`, `scope_description`, `proposal_structure`) mas **só são persistidos** quando o usuário clica "Salvar" no topo.
 
-## 5. Atualizar selects de status
+### d) Exibição em modo leitura
+Mostrar os 4 campos novos abaixo de "Observações" quando preenchidos.
 
-Em `Comercial.tsx` (criação + filtro) e `DevisDetail.tsx` (edição): popular options a partir do mapa central (inclui novos + antigos para retrocompatibilidade).
+## 4. Modal de criação em `Comercial.tsx`
+Adicionar apenas o campo `meeting_report` (Textarea) + botão "Gerar proposta" com o mesmo fluxo. Sugestões aparecem inline dentro do modal. Mantém comportamento: nada é salvo automaticamente.
 
-## 6. Detalhes técnicos
-- Sem mudança de RLS — policies atuais cobrem update.
-- Atualização otimista no Kanban com rollback em caso de erro (toast).
-- Default de novos Devis continua `rascunho` (mantido).
+## 5. Tipos e integrações
+- `src/integrations/supabase/types.ts` é auto-gerado, será atualizado pela migração
+- Sem mudanças de RLS (tabela `devis` já tem policies adequadas)
+- Sem novas dependências npm
 
 ## Ordem de execução
-1. Migração: estender enum `devis_status`
-2. Criar `src/lib/devisStatus.ts`
-3. Instalar `@dnd-kit/core` e `@dnd-kit/sortable`
-4. Criar `src/components/devis/DevisKanban.tsx`
-5. Atualizar `src/pages/Comercial.tsx` (toggle Lista/Kanban + selects)
-6. Atualizar `src/pages/DevisDetail.tsx` (selects + cores)
+1. Migração: adicionar 5 colunas em `devis`
+2. Criar edge function `generate-devis-proposal`
+3. Atualizar `DevisDetail.tsx` (campo, botão, bloco Sugestões IA, modo leitura)
+4. Atualizar `Comercial.tsx` (campo + botão no modal de criação)
