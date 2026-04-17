@@ -16,26 +16,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { toast } from "sonner";
-import { Plus, Users, FileText, Eye, Pencil, CalendarIcon, Filter } from "lucide-react";
+import { Plus, Users, FileText, Eye, Pencil, CalendarIcon, Filter, LayoutGrid, List } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-
-const devisStatusColors: Record<string, string> = {
-  rascunho: "bg-muted text-muted-foreground",
-  enviado: "bg-primary/20 text-primary border-primary/30",
-  aprovado: "bg-success/20 text-success border-success/30",
-  rejeitado: "bg-destructive/20 text-destructive border-destructive/30",
-  convertido: "bg-warning/20 text-warning border-warning/30",
-};
-
-const statusLabels: Record<string, string> = {
-  rascunho: "Rascunho",
-  enviado: "Enviado",
-  aprovado: "Aprovado",
-  rejeitado: "Rejeitado",
-  convertido: "Convertido",
-};
+import { ALL_STATUSES, STATUS_LABELS as statusLabels, STATUS_BADGE_CLASSES as devisStatusColors } from "@/lib/devisStatus";
+import DevisKanban from "@/components/devis/DevisKanban";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 const fmtBRL = (n: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(n) || 0);
@@ -91,6 +78,7 @@ export default function Comercial() {
   const [filterClient, setFilterClient] = useState<string>("all");
   const [filterStart, setFilterStart] = useState<Date | undefined>();
   const [filterEnd, setFilterEnd] = useState<Date | undefined>();
+  const [view, setView] = useState<"list" | "kanban">("list");
 
   const { data: clients = [] } = useQuery({
     queryKey: ["clients"],
