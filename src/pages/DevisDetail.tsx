@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { toast } from "sonner";
-import { ArrowLeft, Pencil, Save, X, CalendarIcon, Sparkles, Loader2 } from "lucide-react";
+import { ArrowLeft, Pencil, Save, X, CalendarIcon, Sparkles, Loader2, Link as LinkIcon, CheckCircle2 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -159,10 +159,36 @@ export default function DevisDetail() {
               </Button>
             </>
           ) : (
-            <Button onClick={() => setEditing(true)}><Pencil className="h-4 w-4 mr-2" /> Editar</Button>
+            <>
+              {devis.validated_at && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    const url = `${window.location.origin}/proposta/aceite/${devis.accept_token}`;
+                    navigator.clipboard.writeText(url);
+                    toast.success("Link de aceite copiado!");
+                  }}
+                >
+                  <LinkIcon className="h-4 w-4 mr-2" /> Copiar link de aceite
+                </Button>
+              )}
+              <Button onClick={() => setEditing(true)}><Pencil className="h-4 w-4 mr-2" /> Editar</Button>
+            </>
           )}
         </div>
       </div>
+
+      {devis.accepted_at && (
+        <div className="rounded-lg border border-green-500/40 bg-green-500/10 px-4 py-3 flex items-center gap-3">
+          <CheckCircle2 className="h-5 w-5 text-green-600" />
+          <div className="text-sm">
+            <span className="font-semibold text-green-700 dark:text-green-400">Aceita pelo cliente</span>
+            <span className="text-muted-foreground ml-2">
+              em {format(parseISO(devis.accepted_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+            </span>
+          </div>
+        </div>
+      )}
 
       <Card>
         <CardHeader><CardTitle>Informações</CardTitle></CardHeader>

@@ -15,6 +15,7 @@ import Operacao from "./pages/Operacao";
 import Gestao from "./pages/Gestao";
 import BI from "./pages/BI";
 import Admin from "./pages/Admin";
+import AceitarProposta from "./pages/AceitarProposta";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -50,6 +51,7 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/auth" element={<AuthRoute />} />
+            <Route path="/proposta/aceite/:token" element={<AceitarProposta />} />
             <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
               <Route index element={<Dashboard />} />
               <Route path="financeiro" element={<Financeiro />} />
