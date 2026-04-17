@@ -202,6 +202,23 @@ export default function DevisDetail() {
         </div>
       )}
 
+      {linkedService && (
+        <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+            <div className="text-sm">
+              <span className="font-semibold text-emerald-700 dark:text-emerald-400">Case operacional criado</span>
+              <span className="text-muted-foreground ml-2">
+                Setor: {linkedService.responsible_sector || "—"} · Status: A iniciar
+              </span>
+            </div>
+          </div>
+          <Button size="sm" variant="outline" onClick={() => navigate("/operacao")}>
+            Ver no módulo Operação
+          </Button>
+        </div>
+      )}
+
       <Card>
         <CardHeader><CardTitle>Informações</CardTitle></CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
