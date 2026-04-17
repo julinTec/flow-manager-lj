@@ -299,9 +299,14 @@ export type Database = {
           id: string
           initial_charge_generated: boolean | null
           meeting_date: string | null
+          meeting_report: string | null
           meeting_summary: string | null
           notes: string | null
+          proposal_structure: string | null
           reference_number: string | null
+          responsible_sector: string | null
+          scope_description: string | null
+          service_type: string | null
           status: Database["public"]["Enums"]["devis_status"]
           title: string
           total_amount: number
@@ -320,9 +325,14 @@ export type Database = {
           id?: string
           initial_charge_generated?: boolean | null
           meeting_date?: string | null
+          meeting_report?: string | null
           meeting_summary?: string | null
           notes?: string | null
+          proposal_structure?: string | null
           reference_number?: string | null
+          responsible_sector?: string | null
+          scope_description?: string | null
+          service_type?: string | null
           status?: Database["public"]["Enums"]["devis_status"]
           title: string
           total_amount?: number
@@ -341,9 +351,14 @@ export type Database = {
           id?: string
           initial_charge_generated?: boolean | null
           meeting_date?: string | null
+          meeting_report?: string | null
           meeting_summary?: string | null
           notes?: string | null
+          proposal_structure?: string | null
           reference_number?: string | null
+          responsible_sector?: string | null
+          scope_description?: string | null
+          service_type?: string | null
           status?: Database["public"]["Enums"]["devis_status"]
           title?: string
           total_amount?: number
