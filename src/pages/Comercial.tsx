@@ -348,40 +348,44 @@ export default function Comercial() {
             </Dialog>
           </div>
 
-          <Card>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Valor Total</TableHead>
-                  <TableHead className="text-right">Entrada</TableHead>
-                  <TableHead>Data Reunião</TableHead>
-                  <TableHead>Responsável</TableHead>
-                  <TableHead className="w-20">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredDevis.length === 0 ? (
-                  <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhum devis encontrado</TableCell></TableRow>
-                ) : filteredDevis.map((d: any) => (
-                  <TableRow key={d.id} className="cursor-pointer" onClick={() => navigate(`/comercial/devis/${d.id}`)}>
-                    <TableCell className="font-medium">{clientsById[d.client_id]?.name || "—"}</TableCell>
-                    <TableCell><Badge variant="outline" className={devisStatusColors[d.status] || ""}>{statusLabels[d.status] || d.status}</Badge></TableCell>
-                    <TableCell className="text-right">{fmtBRL(d.total_amount)}</TableCell>
-                    <TableCell className="text-right">{fmtBRL(d.down_payment_amount)}</TableCell>
-                    <TableCell>{d.meeting_date ? format(parseISO(d.meeting_date), "dd/MM/yyyy") : "—"}</TableCell>
-                    <TableCell>{profilesById[d.commercial_responsible]?.full_name || profilesById[d.commercial_responsible]?.email || "—"}</TableCell>
-                    <TableCell onClick={(e) => e.stopPropagation()}>
-                      <Button size="icon" variant="ghost" onClick={() => navigate(`/comercial/devis/${d.id}`)}>
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
+          {view === "kanban" ? (
+            <DevisKanban devis={filteredDevis} clientsById={clientsById} profilesById={profilesById} />
+          ) : (
+            <Card>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Valor Total</TableHead>
+                    <TableHead className="text-right">Entrada</TableHead>
+                    <TableHead>Data Reunião</TableHead>
+                    <TableHead>Responsável</TableHead>
+                    <TableHead className="w-20">Ações</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
+                </TableHeader>
+                <TableBody>
+                  {filteredDevis.length === 0 ? (
+                    <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhum devis encontrado</TableCell></TableRow>
+                  ) : filteredDevis.map((d: any) => (
+                    <TableRow key={d.id} className="cursor-pointer" onClick={() => navigate(`/comercial/devis/${d.id}`)}>
+                      <TableCell className="font-medium">{clientsById[d.client_id]?.name || "—"}</TableCell>
+                      <TableCell><Badge variant="outline" className={devisStatusColors[d.status] || ""}>{statusLabels[d.status] || d.status}</Badge></TableCell>
+                      <TableCell className="text-right">{fmtBRL(d.total_amount)}</TableCell>
+                      <TableCell className="text-right">{fmtBRL(d.down_payment_amount)}</TableCell>
+                      <TableCell>{d.meeting_date ? format(parseISO(d.meeting_date), "dd/MM/yyyy") : "—"}</TableCell>
+                      <TableCell>{profilesById[d.commercial_responsible]?.full_name || profilesById[d.commercial_responsible]?.email || "—"}</TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <Button size="icon" variant="ghost" onClick={() => navigate(`/comercial/devis/${d.id}`)}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Card>
+          )}
         </TabsContent>
 
         {/* CLIENTS TAB */}
