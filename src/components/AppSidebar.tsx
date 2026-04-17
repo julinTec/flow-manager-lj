@@ -1,5 +1,5 @@
 import {
-  LayoutDashboard,
+  Home,
   ShoppingCart,
   DollarSign,
   ArrowLeftRight,
@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/sidebar";
 
 const mainItems = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
+  { title: "Início", url: "/", icon: Home },
   { title: "Devis", url: "/comercial", icon: ShoppingCart },
   { title: "Financeiro", url: "/financeiro", icon: DollarSign },
   { title: "Conciliação", url: "/conciliacao", icon: ArrowLeftRight },
