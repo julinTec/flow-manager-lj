@@ -151,7 +151,7 @@ export default function DevisDetail() {
         <div className="flex gap-2">
           {editing ? (
             <>
-              <Button variant="outline" onClick={() => { setEditing(false); setAiSuggestions(null); setForm({ ...devis, meeting_date: devis.meeting_date ? parseISO(devis.meeting_date) : undefined, total_amount: String(devis.total_amount ?? ""), down_payment_amount: String(devis.down_payment_amount ?? "") }); }}>
+              <Button variant="outline" onClick={() => { setEditing(false); setAiSuggestions(null); setForm({ ...devis, meeting_date: devis.meeting_date ? parseISO(devis.meeting_date) : undefined, deadline_date: devis.deadline_date ? parseISO(devis.deadline_date) : undefined, total_amount: String(devis.total_amount ?? ""), down_payment_amount: String(devis.down_payment_amount ?? "") }); }}>
                 <X className="h-4 w-4 mr-2" /> Cancelar
               </Button>
               <Button onClick={() => update.mutate()} disabled={update.isPending}>
