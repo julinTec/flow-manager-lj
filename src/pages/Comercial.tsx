@@ -112,13 +112,13 @@ export default function Comercial() {
 
   const filteredDevis = useMemo(() => {
     return devisList.filter((d: any) => {
-      if (filterStatus !== "all" && d.status !== filterStatus) return false;
+      if (view === "list" && filterStatus !== "all" && d.status !== filterStatus) return false;
       if (filterClient !== "all" && d.client_id !== filterClient) return false;
       if (filterStart && d.meeting_date && parseISO(d.meeting_date) < filterStart) return false;
       if (filterEnd && d.meeting_date && parseISO(d.meeting_date) > filterEnd) return false;
       return true;
     });
-  }, [devisList, filterStatus, filterClient, filterStart, filterEnd]);
+  }, [devisList, filterStatus, filterClient, filterStart, filterEnd, view]);
 
   const saveClient = useMutation({
     mutationFn: async (form: ClientForm) => {
@@ -210,12 +210,12 @@ export default function Comercial() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
               <div>
-                <Label className="text-xs">Status</Label>
-                <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <Label className="text-xs">Status {view === "kanban" && <span className="text-[10px]">(desativado no Kanban)</span>}</Label>
+                <Select value={filterStatus} onValueChange={setFilterStatus} disabled={view === "kanban"}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos</SelectItem>
-                    {Object.entries(statusLabels).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                    {ALL_STATUSES.map((k) => <SelectItem key={k} value={k}>{statusLabels[k]}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -312,7 +312,7 @@ export default function Comercial() {
                     <Select value={devisForm.status} onValueChange={(v) => setDevisForm({ ...devisForm, status: v })}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {Object.entries(statusLabels).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                        {ALL_STATUSES.map((k) => <SelectItem key={k} value={k}>{statusLabels[k]}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
