@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { Plus, Settings2 } from "lucide-react";
 
 const serviceStatusColors: Record<string, string> = {
+  a_iniciar: "bg-accent/30 text-accent-foreground border-accent/40",
   pendente: "bg-warning/20 text-warning border-warning/30",
   em_andamento: "bg-primary/20 text-primary border-primary/30",
   concluido: "bg-success/20 text-success border-success/30",
@@ -20,6 +21,7 @@ const serviceStatusColors: Record<string, string> = {
 };
 
 const statusLabels: Record<string, string> = {
+  a_iniciar: "A iniciar",
   pendente: "Pendente",
   em_andamento: "Em Andamento",
   concluido: "Concluído",
@@ -99,25 +101,26 @@ export default function Operacao() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Título</TableHead><TableHead>Negócio</TableHead><TableHead>Início</TableHead><TableHead>Previsão</TableHead><TableHead>Conclusão</TableHead><TableHead>Status</TableHead><TableHead>Ações</TableHead>
+              <TableHead>Título</TableHead><TableHead>Negócio</TableHead><TableHead>Setor</TableHead><TableHead>Início</TableHead><TableHead>Previsão</TableHead><TableHead>Conclusão</TableHead><TableHead>Status</TableHead><TableHead>Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {services.length === 0 ? (
-              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhum serviço cadastrado</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nenhum serviço cadastrado</TableCell></TableRow>
             ) : services.map((s) => (
               <TableRow key={s.id}>
                 <TableCell className="font-medium">{s.title}</TableCell>
                 <TableCell>{s.business_unit}</TableCell>
+                <TableCell>{(s as any).responsible_sector || "—"}</TableCell>
                 <TableCell>{s.start_date}</TableCell>
                 <TableCell>{s.expected_end_date}</TableCell>
                 <TableCell>{s.actual_end_date}</TableCell>
-                <TableCell><Badge variant="outline" className={serviceStatusColors[s.status] || ""}>{statusLabels[s.status]}</Badge></TableCell>
+                <TableCell><Badge variant="outline" className={serviceStatusColors[s.status] || ""}>{statusLabels[s.status] || s.status}</Badge></TableCell>
                 <TableCell>
                   <Select value="" onValueChange={(v) => updateStatus.mutate({ id: s.id, status: v })}>
                     <SelectTrigger className="w-36 h-8"><SelectValue placeholder="Alterar" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="pendente">Pendente</SelectItem>
+                      <SelectItem value="a_iniciar">A iniciar</SelectItem>
                       <SelectItem value="em_andamento">Em Andamento</SelectItem>
                       <SelectItem value="concluido">Concluído</SelectItem>
                       <SelectItem value="cancelado">Cancelado</SelectItem>
