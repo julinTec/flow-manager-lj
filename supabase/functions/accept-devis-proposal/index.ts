@@ -30,11 +30,10 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Busca o devis pelo token + nome do cliente
     const { data: devis, error: fetchErr } = await supabase
       .from("devis")
       .select(
-        "id, title, total_amount, down_payment_amount, deadline_date, scope_description, proposal_structure, accepted_at, status, sent_at, client_id",
+        "id, title, reference_number, total_amount, down_payment_amount, deadline_date, scope_description, proposal_structure, accepted_at, status, sent_at, client_id, business_unit, initial_charge_generated",
       )
       .eq("accept_token", token)
       .maybeSingle();
@@ -69,9 +68,9 @@ Deno.serve(async (req) => {
     if (req.method === "GET") return json(preview);
 
     if (req.method === "POST") {
-      // Idempotente
+      // Idempotente: já aceito → retorna sem gerar nova cobrança
       if (devis.accepted_at) {
-        return json({ ...preview, already_accepted: true });
+        return json({ ...preview, already_accepted: true, charge_created: false });
       }
 
       const ip =
@@ -79,14 +78,18 @@ Deno.serve(async (req) => {
         req.headers.get("cf-connecting-ip") ||
         null;
 
+      // Atualiza devis com status 'cobranca_pendente' e seta flag de cobrança
+      // Idempotência reforçada: WHERE accepted_at IS NULL
       const { data: updated, error: upErr } = await supabase
         .from("devis")
         .update({
           accepted_at: new Date().toISOString(),
           accepted_ip: ip,
-          status: "aceita",
+          status: "cobranca_pendente",
+          initial_charge_generated: true,
         })
         .eq("id", devis.id)
+        .is("accepted_at", null)
         .select("accepted_at")
         .maybeSingle();
 
@@ -95,7 +98,68 @@ Deno.serve(async (req) => {
         return json({ error: "Não foi possível registrar o aceite" }, 500);
       }
 
-      return json({ ...preview, accepted_at: updated?.accepted_at });
+      // Se nada foi atualizado, outra requisição venceu a corrida
+      if (!updated) {
+        return json({ ...preview, already_accepted: true, charge_created: false });
+      }
+
+      // Cria registro financeiro de cobrança inicial (50%)
+      const total = Number(devis.total_amount) || 0;
+      const chargeAmount = Number(devis.down_payment_amount) > 0
+        ? Number(devis.down_payment_amount)
+        : total * 0.5;
+
+      const today = new Date();
+      const todayISO = today.toISOString().slice(0, 10);
+      const competence = todayISO.slice(0, 7); // YYYY-MM
+
+      const refLabel = devis.reference_number ? `#${devis.reference_number}` : `#${devis.id.slice(0, 8)}`;
+      const description = `Cobrança inicial 50% — Devis ${refLabel} — ${devis.title}`;
+
+      const { data: feRow, error: feErr } = await supabase
+        .from("financial_entries")
+        .insert({
+          entry_date: todayISO,
+          amount_in: chargeAmount,
+          amount_out: 0,
+          amount_signed: chargeAmount,
+          entry_type: "receita",
+          counterparty_name: clientName,
+          movement_description: description,
+          business_unit: devis.business_unit,
+          competence_month: competence,
+          source_type: "manual",
+          conciliation_status: "pendente",
+          document_reference: devis.reference_number ?? devis.id,
+        })
+        .select("id")
+        .maybeSingle();
+
+      if (feErr) {
+        console.error("financial_entries insert error", feErr);
+        // Não falha o aceite — apenas registra
+      }
+
+      // Audit log
+      await supabase.from("audit_logs").insert({
+        action: "devis_accepted_charge_created",
+        entity_type: "devis",
+        entity_id: devis.id,
+        details: {
+          accepted_at: updated.accepted_at,
+          accepted_ip: ip,
+          charge_amount: chargeAmount,
+          financial_entry_id: feRow?.id ?? null,
+          client_name: clientName,
+        },
+      });
+
+      return json({
+        ...preview,
+        accepted_at: updated.accepted_at,
+        charge_created: !feErr,
+        charge_amount: chargeAmount,
+      });
     }
 
     return json({ error: "Método não suportado" }, 405);
