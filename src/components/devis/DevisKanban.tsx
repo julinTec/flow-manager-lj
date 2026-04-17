@@ -141,6 +141,12 @@ export default function DevisKanban({ devis, clientsById, profilesById }: DevisK
     if (!card || card.status === newStatus) return;
     if (!PIPELINE_STATUSES.includes(newStatus as any)) return;
 
+    // Bloqueio: status que exige validação comercial
+    if (requiresValidation(newStatus) && !card.validated_at) {
+      toast.error("É necessário validar a proposta antes de enviá-la ao cliente");
+      return;
+    }
+
     // Optimistic update
     queryClient.setQueryData(["devis"], (old: any[] | undefined) =>
       (old ?? []).map((d) => (d.id === card.id ? { ...d, status: newStatus } : d)),
