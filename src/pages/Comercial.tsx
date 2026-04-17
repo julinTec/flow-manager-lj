@@ -82,7 +82,9 @@ export default function Comercial() {
   const [filterStart, setFilterStart] = useState<Date | undefined>();
   const [filterEnd, setFilterEnd] = useState<Date | undefined>();
   const [view, setView] = useState<"list" | "kanban">("list");
-
+  const [aiSuggestions, setAiSuggestions] = useState<AISuggestions | null>(null);
+  const [aiAccepted, setAiAccepted] = useState<Partial<AISuggestions>>({});
+  const [generating, setGenerating] = useState(false);
   const { data: clients = [] } = useQuery({
     queryKey: ["clients"],
     queryFn: async () => {
