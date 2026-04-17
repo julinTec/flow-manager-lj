@@ -163,12 +163,17 @@ export default function Comercial() {
         meeting_date: form.meeting_date ? format(form.meeting_date, "yyyy-MM-dd") : null,
         commercial_responsible: form.commercial_responsible || null,
         meeting_summary: form.meeting_summary || null,
+        meeting_report: form.meeting_report || null,
         status: form.status as any,
         total_amount: total,
         down_payment_amount: down,
         notes: form.notes || null,
         title,
         created_by: user?.id,
+        service_type: aiAccepted.service_type || null,
+        responsible_sector: aiAccepted.responsible_sector || null,
+        scope_description: aiAccepted.scope_description || null,
+        proposal_structure: aiAccepted.proposal_structure || null,
       });
       if (error) throw error;
     },
@@ -177,10 +182,33 @@ export default function Comercial() {
       queryClient.invalidateQueries({ queryKey: ["devis"] });
       setDevisDialogOpen(false);
       setDevisForm(emptyDevis);
+      setAiSuggestions(null);
+      setAiAccepted({});
     },
     onError: (e: any) => toast.error(e.message),
   });
 
+  const handleGenerateProposal = async () => {
+    if (!devisForm.meeting_report?.trim()) return;
+    setGenerating(true);
+    try {
+      const client = clientsById[devisForm.client_id];
+      const { data, error } = await supabase.functions.invoke("generate-devis-proposal", {
+        body: {
+          meeting_report: devisForm.meeting_report,
+          client_name: client?.name,
+          total_amount: Number(devisForm.total_amount) || undefined,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setAiSuggestions(data.suggestions);
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao gerar proposta");
+    } finally {
+      setGenerating(false);
+    }
+  };
   const openEditClient = (c: any) => {
     setClientForm({
       id: c.id,
