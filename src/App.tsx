@@ -6,7 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { AppLayout } from "@/components/AppLayout";
 import Auth from "./pages/Auth";
-import Dashboard from "./pages/Dashboard";
+import Hub from "./pages/Hub";
 import Financeiro from "./pages/Financeiro";
 import Conciliacao from "./pages/Conciliacao";
 import Comercial from "./pages/Comercial";
@@ -53,7 +53,7 @@ const App = () => (
             <Route path="/auth" element={<AuthRoute />} />
             <Route path="/proposta/aceite/:token" element={<AceitarProposta />} />
             <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-              <Route index element={<Dashboard />} />
+              <Route index element={<Hub />} />
               <Route path="financeiro" element={<Financeiro />} />
               <Route path="conciliacao" element={<Conciliacao />} />
               <Route path="comercial" element={<Comercial />} />
