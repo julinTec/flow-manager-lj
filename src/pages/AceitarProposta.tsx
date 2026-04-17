@@ -124,7 +124,10 @@ export default function AceitarProposta() {
                         Em {format(parseISO(preview.accepted_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                       </p>
                     )}
-                    <p className="text-sm mt-2">Em breve nossa equipe entrará em contato para iniciar os próximos passos.</p>
+                    <p className="text-sm mt-2">
+                      Proposta aceita! Em breve você receberá a cobrança inicial de <strong>50%</strong> do valor total
+                      ({fmtBRL(preview.down_payment_amount)}) para iniciarmos os próximos passos.
+                    </p>
                   </div>
                 </CardContent>
               </Card>
