@@ -129,11 +129,13 @@ export default function DevisDetail() {
           <div>
             <Label>Cliente</Label>
             {editing ? (
-              <Select value={form.client_id ?? ""} onValueChange={(v) => setForm({ ...form, client_id: v })}>
+              <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{clients.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+                <SelectContent>
+                  {ALL_STATUSES.map((k) => <SelectItem key={k} value={k}>{statusLabels[k]}</SelectItem>)}
+                </SelectContent>
               </Select>
-            ) : <p className="font-medium mt-1">{client?.name || "—"}</p>}
+            ) : <div className="mt-1"><Badge variant="outline" className={devisStatusColors[devis.status] || ""}>{statusLabels[devis.status] || devis.status}</Badge></div>}
           </div>
 
           {/* Status */}
