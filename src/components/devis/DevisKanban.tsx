@@ -22,6 +22,7 @@ import {
   STATUS_LABELS,
   STATUS_COLUMN_ACCENT,
   STATUS_BADGE_CLASSES,
+  requiresValidation,
 } from "@/lib/devisStatus";
 import { cn } from "@/lib/utils";
 
@@ -139,6 +140,12 @@ export default function DevisKanban({ devis, clientsById, profilesById }: DevisK
     const card = devis.find((d: any) => d.id === active.id);
     if (!card || card.status === newStatus) return;
     if (!PIPELINE_STATUSES.includes(newStatus as any)) return;
+
+    // Bloqueio: status que exige validação comercial
+    if (requiresValidation(newStatus) && !card.validated_at) {
+      toast.error("É necessário validar a proposta antes de enviá-la ao cliente");
+      return;
+    }
 
     // Optimistic update
     queryClient.setQueryData(["devis"], (old: any[] | undefined) =>

@@ -16,8 +16,9 @@ import { ArrowLeft, Pencil, Save, X, CalendarIcon, Sparkles, Loader2 } from "luc
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { ALL_STATUSES, STATUS_LABELS as statusLabels, STATUS_BADGE_CLASSES as devisStatusColors } from "@/lib/devisStatus";
+import { ALL_STATUSES, STATUS_LABELS as statusLabels, STATUS_BADGE_CLASSES as devisStatusColors, requiresValidation } from "@/lib/devisStatus";
 import AISuggestionsBlock, { type AISuggestions } from "@/components/devis/AISuggestionsBlock";
+import ValidationChecklist from "@/components/devis/ValidationChecklist";
 
 const fmtBRL = (n: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(n) || 0);
@@ -59,6 +60,7 @@ export default function DevisDetail() {
       setForm({
         ...devis,
         meeting_date: devis.meeting_date ? parseISO(devis.meeting_date) : undefined,
+        deadline_date: devis.deadline_date ? parseISO(devis.deadline_date) : undefined,
         total_amount: String(devis.total_amount ?? ""),
         down_payment_amount: String(devis.down_payment_amount ?? ""),
       });
@@ -67,9 +69,14 @@ export default function DevisDetail() {
 
   const update = useMutation({
     mutationFn: async () => {
+      // Bloqueio: status que exige validação não pode ser salvo se ainda não validado
+      if (requiresValidation(form.status) && !devis.validated_at) {
+        throw new Error("Valide a proposta antes de mover para este status.");
+      }
       const payload = {
         client_id: form.client_id || null,
         meeting_date: form.meeting_date ? format(form.meeting_date, "yyyy-MM-dd") : null,
+        deadline_date: form.deadline_date ? format(form.deadline_date, "yyyy-MM-dd") : null,
         commercial_responsible: form.commercial_responsible || null,
         meeting_summary: form.meeting_summary || null,
         meeting_report: form.meeting_report || null,
@@ -82,6 +89,11 @@ export default function DevisDetail() {
         responsible_sector: form.responsible_sector || null,
         scope_description: form.scope_description || null,
         proposal_structure: form.proposal_structure || null,
+        validation_client_confirmed: !!form.validation_client_confirmed,
+        validation_service_confirmed: !!form.validation_service_confirmed,
+        validation_sector_defined: !!form.validation_sector_defined,
+        validation_amount_confirmed: !!form.validation_amount_confirmed,
+        validation_deadline_defined: !!form.validation_deadline_defined,
       };
       const { error } = await supabase.from("devis").update(payload).eq("id", id!);
       if (error) throw error;
@@ -139,7 +151,7 @@ export default function DevisDetail() {
         <div className="flex gap-2">
           {editing ? (
             <>
-              <Button variant="outline" onClick={() => { setEditing(false); setAiSuggestions(null); setForm({ ...devis, meeting_date: devis.meeting_date ? parseISO(devis.meeting_date) : undefined, total_amount: String(devis.total_amount ?? ""), down_payment_amount: String(devis.down_payment_amount ?? "") }); }}>
+              <Button variant="outline" onClick={() => { setEditing(false); setAiSuggestions(null); setForm({ ...devis, meeting_date: devis.meeting_date ? parseISO(devis.meeting_date) : undefined, deadline_date: devis.deadline_date ? parseISO(devis.deadline_date) : undefined, total_amount: String(devis.total_amount ?? ""), down_payment_amount: String(devis.down_payment_amount ?? "") }); }}>
                 <X className="h-4 w-4 mr-2" /> Cancelar
               </Button>
               <Button onClick={() => update.mutate()} disabled={update.isPending}>
@@ -170,12 +182,26 @@ export default function DevisDetail() {
           <div>
             <Label>Status</Label>
             {editing ? (
-              <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {ALL_STATUSES.map((k) => <SelectItem key={k} value={k}>{statusLabels[k]}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <>
+                <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {ALL_STATUSES.map((k) => {
+                      const blocked = requiresValidation(k) && !devis.validated_at;
+                      return (
+                        <SelectItem key={k} value={k} disabled={blocked}>
+                          {statusLabels[k]}{blocked ? " 🔒" : ""}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+                {!devis.validated_at && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    🔒 Valide a proposta antes de enviar ao cliente
+                  </p>
+                )}
+              </>
             ) : <div className="mt-1"><Badge variant="outline" className={devisStatusColors[devis.status] || ""}>{statusLabels[devis.status] || devis.status}</Badge></div>}
           </div>
 
@@ -195,6 +221,24 @@ export default function DevisDetail() {
                 </PopoverContent>
               </Popover>
             ) : <p className="font-medium mt-1">{devis.meeting_date ? format(parseISO(devis.meeting_date), "dd/MM/yyyy") : "—"}</p>}
+          </div>
+
+          {/* Prazo (deadline) */}
+          <div>
+            <Label>Prazo (deadline)</Label>
+            {editing ? (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("w-full justify-start font-normal", !form.deadline_date && "text-muted-foreground")}>
+                    <CalendarIcon className="h-4 w-4 mr-2" />
+                    {form.deadline_date ? format(form.deadline_date, "dd/MM/yyyy") : "Selecionar"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={form.deadline_date} onSelect={(d) => setForm({ ...form, deadline_date: d, validation_deadline_defined: !!d })} initialFocus className={cn("p-3 pointer-events-auto")} locale={ptBR} />
+                </PopoverContent>
+              </Popover>
+            ) : <p className="font-medium mt-1">{devis.deadline_date ? format(parseISO(devis.deadline_date), "dd/MM/yyyy") : "—"}</p>}
           </div>
 
           {/* Responsável */}
@@ -290,6 +334,15 @@ export default function DevisDetail() {
           )}
         </CardContent>
       </Card>
+
+      {/* Validação Comercial */}
+      <ValidationChecklist
+        devis={devis}
+        form={form}
+        editing={editing}
+        onToggle={(key, value) => setForm((f: any) => ({ ...f, [key]: value }))}
+        profilesById={profilesById}
+      />
 
       {/* AI Suggestions Block */}
       {editing && aiSuggestions && (
