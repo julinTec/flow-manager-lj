@@ -182,12 +182,26 @@ export default function DevisDetail() {
           <div>
             <Label>Status</Label>
             {editing ? (
-              <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {ALL_STATUSES.map((k) => <SelectItem key={k} value={k}>{statusLabels[k]}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <>
+                <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {ALL_STATUSES.map((k) => {
+                      const blocked = requiresValidation(k) && !devis.validated_at;
+                      return (
+                        <SelectItem key={k} value={k} disabled={blocked}>
+                          {statusLabels[k]}{blocked ? " 🔒" : ""}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+                {!devis.validated_at && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    🔒 Valide a proposta antes de enviar ao cliente
+                  </p>
+                )}
+              </>
             ) : <div className="mt-1"><Badge variant="outline" className={devisStatusColors[devis.status] || ""}>{statusLabels[devis.status] || devis.status}</Badge></div>}
           </div>
 
