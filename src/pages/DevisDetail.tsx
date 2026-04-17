@@ -52,6 +52,19 @@ export default function DevisDetail() {
     queryFn: async () => (await supabase.from("profiles").select("user_id, full_name, email").order("full_name")).data ?? [],
   });
 
+  const { data: linkedService } = useQuery({
+    queryKey: ["devis-service", id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("services")
+        .select("id, responsible_sector, status")
+        .eq("devis_id", id!)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!id,
+  });
+
   const clientsById = useMemo(() => Object.fromEntries(clients.map((c: any) => [c.id, c])), [clients]);
   const profilesById = useMemo(() => Object.fromEntries(profiles.map((p: any) => [p.user_id, p])), [profiles]);
 
