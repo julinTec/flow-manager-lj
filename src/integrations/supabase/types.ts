@@ -581,6 +581,7 @@ export type Database = {
           expected_end_date: string | null
           final_charge_generated: boolean | null
           id: string
+          responsible_sector: string | null
           start_date: string | null
           status: Database["public"]["Enums"]["service_status"]
           title: string
@@ -597,6 +598,7 @@ export type Database = {
           expected_end_date?: string | null
           final_charge_generated?: boolean | null
           id?: string
+          responsible_sector?: string | null
           start_date?: string | null
           status?: Database["public"]["Enums"]["service_status"]
           title: string
@@ -613,6 +615,7 @@ export type Database = {
           expected_end_date?: string | null
           final_charge_generated?: boolean | null
           id?: string
+          responsible_sector?: string | null
           start_date?: string | null
           status?: Database["public"]["Enums"]["service_status"]
           title?: string
@@ -697,7 +700,12 @@ export type Database = {
       import_status: "processando" | "concluido" | "erro" | "parcial"
       match_status: "sugerido" | "confirmado" | "rejeitado"
       match_type: "automatico" | "manual"
-      service_status: "pendente" | "em_andamento" | "concluido" | "cancelado"
+      service_status:
+        | "pendente"
+        | "em_andamento"
+        | "concluido"
+        | "cancelado"
+        | "a_iniciar"
       source_type:
         | "manual"
         | "importacao_planilha"
@@ -862,7 +870,13 @@ export const Constants = {
       import_status: ["processando", "concluido", "erro", "parcial"],
       match_status: ["sugerido", "confirmado", "rejeitado"],
       match_type: ["automatico", "manual"],
-      service_status: ["pendente", "em_andamento", "concluido", "cancelado"],
+      service_status: [
+        "pendente",
+        "em_andamento",
+        "concluido",
+        "cancelado",
+        "a_iniciar",
+      ],
       source_type: [
         "manual",
         "importacao_planilha",

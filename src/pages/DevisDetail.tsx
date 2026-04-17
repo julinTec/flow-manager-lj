@@ -52,6 +52,19 @@ export default function DevisDetail() {
     queryFn: async () => (await supabase.from("profiles").select("user_id, full_name, email").order("full_name")).data ?? [],
   });
 
+  const { data: linkedService } = useQuery({
+    queryKey: ["devis-service", id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("services")
+        .select("id, responsible_sector, status")
+        .eq("devis_id", id!)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!id,
+  });
+
   const clientsById = useMemo(() => Object.fromEntries(clients.map((c: any) => [c.id, c])), [clients]);
   const profilesById = useMemo(() => Object.fromEntries(profiles.map((p: any) => [p.user_id, p])), [profiles]);
 
@@ -199,6 +212,23 @@ export default function DevisDetail() {
               50% do valor total ({fmtBRL(Number(devis.down_payment_amount) || Number(devis.total_amount) * 0.5)}) lançada no Financeiro
             </span>
           </div>
+        </div>
+      )}
+
+      {linkedService && (
+        <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+            <div className="text-sm">
+              <span className="font-semibold text-emerald-700 dark:text-emerald-400">Case operacional criado</span>
+              <span className="text-muted-foreground ml-2">
+                Setor: {linkedService.responsible_sector || "—"} · Status: A iniciar
+              </span>
+            </div>
+          </div>
+          <Button size="sm" variant="outline" onClick={() => navigate("/operacao")}>
+            Ver no módulo Operação
+          </Button>
         </div>
       )}
 

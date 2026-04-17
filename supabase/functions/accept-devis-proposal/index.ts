@@ -140,6 +140,49 @@ Deno.serve(async (req) => {
         // Não falha o aceite — apenas registra
       }
 
+      // Cria case operacional (service) — idempotente via UNIQUE(devis_id)
+      let serviceId: string | null = null;
+      let serviceCreated = false;
+
+      const { data: existingService } = await supabase
+        .from("services")
+        .select("id")
+        .eq("devis_id", devis.id)
+        .maybeSingle();
+
+      if (existingService) {
+        serviceId = existingService.id;
+      } else {
+        // Busca responsible_sector do devis
+        const { data: devisFull } = await supabase
+          .from("devis")
+          .select("responsible_sector")
+          .eq("id", devis.id)
+          .maybeSingle();
+
+        const { data: svcRow, error: svcErr } = await supabase
+          .from("services")
+          .insert({
+            devis_id: devis.id,
+            client_id: devis.client_id,
+            title: devis.title,
+            description: devis.scope_description,
+            business_unit: devis.business_unit,
+            status: "a_iniciar",
+            expected_end_date: devis.deadline_date,
+            responsible_sector: devisFull?.responsible_sector ?? null,
+          })
+          .select("id")
+          .maybeSingle();
+
+        if (svcErr) {
+          console.error("services insert error", svcErr);
+        } else {
+          serviceId = svcRow?.id ?? null;
+          serviceCreated = true;
+        }
+      }
+
       // Audit log
       await supabase.from("audit_logs").insert({
         action: "devis_accepted_charge_created",
@@ -150,6 +193,8 @@ Deno.serve(async (req) => {
           accepted_ip: ip,
           charge_amount: chargeAmount,
           financial_entry_id: feRow?.id ?? null,
+          service_id: serviceId,
+          service_created: serviceCreated,
           client_name: clientName,
         },
       });
@@ -159,6 +204,8 @@ Deno.serve(async (req) => {
         accepted_at: updated.accepted_at,
         charge_created: !feErr,
         charge_amount: chargeAmount,
+        service_id: serviceId,
+        service_created: serviceCreated,
       });
     }
 
