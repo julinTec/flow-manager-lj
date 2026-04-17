@@ -190,6 +190,18 @@ export default function DevisDetail() {
         </div>
       )}
 
+      {devis.initial_charge_generated && (
+        <div className="rounded-lg border border-blue-500/40 bg-blue-500/10 px-4 py-3 flex items-center gap-3">
+          <CheckCircle2 className="h-5 w-5 text-blue-600" />
+          <div className="text-sm">
+            <span className="font-semibold text-blue-700 dark:text-blue-400">Cobrança inicial gerada</span>
+            <span className="text-muted-foreground ml-2">
+              50% do valor total ({fmtBRL(Number(devis.down_payment_amount) || Number(devis.total_amount) * 0.5)}) lançada no Financeiro
+            </span>
+          </div>
+        </div>
+      )}
+
       <Card>
         <CardHeader><CardTitle>Informações</CardTitle></CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
