@@ -1,66 +1,64 @@
 
-# Plano: Validação Comercial obrigatória antes do envio
+# Plano: Envio de proposta ao cliente por e-mail
 
 ## Resumo
-Adicionar bloco "Validação Comercial" na tela de detalhe do Devis com checklist obrigatório de 5 itens. Enquanto não estiver 100% validado, bloquear a transição para `enviada_ao_cliente` (e status posteriores). Botão "Validar proposta" marca a validação como concluída.
+Adicionar botão **"Enviar proposta"** na tela de detalhe do Devis que abre um **modal de preview** com o e-mail pré-gerado. Após confirmar, envia via Lovable Emails, registra `sent_at`, `sent_to` e move o status para `enviada_ao_cliente`. O cliente recebe um link de aceite que abre uma página pública confirmando o aceite (sem login).
+
+## Pré-requisitos
+- Domínio de e-mail configurado (Lovable Emails). Se não houver, mostrar dialog de setup primeiro.
+- Devis precisa estar **validado** (`validated_at != null`) — reutiliza a lógica já existente de `requiresValidation`.
+- Cliente precisa ter e-mail cadastrado (`clients.email`).
 
 ## 1. Banco de dados (migração)
-
 Adicionar em `devis`:
-- `validation_client_confirmed` (boolean, default false)
-- `validation_service_confirmed` (boolean, default false)
-- `validation_sector_defined` (boolean, default false)
-- `validation_amount_confirmed` (boolean, default false)
-- `validation_deadline_defined` (boolean, default false)
-- `validated_at` (timestamptz, nullable)
-- `validated_by` (uuid, nullable) — referencia user que validou
-- `deadline_date` (date, nullable) — prazo da proposta (insumo do checklist)
+- `sent_at` (timestamptz, nullable)
+- `sent_to` (text, nullable) — e-mail destinatário
+- `sent_by` (uuid, nullable)
+- `accept_token` (uuid, default `gen_random_uuid()`, unique) — token público para aceite
+- `accepted_at` (timestamptz, nullable)
 
-Sem mudança de RLS (policies de `devis` já cobrem update).
+RLS: adicionar policy pública de `SELECT` em `devis` filtrando por `accept_token` (apenas colunas necessárias via view, ou checar token na edge function pública). Optar por **edge function pública** que valida o token e retorna apenas os campos do preview — mais seguro que policy aberta.
 
-## 2. Componente `ValidationChecklist.tsx`
+## 2. Template de e-mail
+- Rodar `email_domain--setup_email_infra` (se ainda não rodado)
+- Rodar `email_domain--scaffold_transactional_email`
+- Criar template `proposal-to-client.tsx` em `_shared/transactional-email-templates/`:
+  - Nome do cliente, título, resumo do serviço/escopo, valor total, valor de entrada, prazo
+  - Botão CTA **"Aceitar proposta"** apontando para `${APP_URL}/proposta/aceite/${accept_token}`
+  - Branding Lundgaard Hub
+- Registrar no `registry.ts`
 
-Novo arquivo: `src/components/devis/ValidationChecklist.tsx`
+## 3. Edge functions
+- **`send-devis-proposal`** (autenticada): valida que o devis está validado, gera token se não existe, invoca `send-transactional-email` com `templateData`, atualiza `sent_at`/`sent_to`/`sent_by`/`status='enviada_ao_cliente'`.
+- **`accept-devis-proposal`** (pública, `verify_jwt = false`): GET retorna preview do devis pelo token; POST marca `accepted_at = now()` e move status para `aceita`.
 
-Card destacado com:
-- Título **"Validação Comercial"** + ícone `ShieldCheck`
-- 5 checkboxes (read-only fora do modo edição):
-  1. Cliente confirmado
-  2. Serviço confirmado
-  3. Setor responsável definido
-  4. Valor validado
-  5. Prazo definido
-- Cada item com auto-sugestão visual (✓ verde se o campo correspondente do devis estiver preenchido — `client_id`, `service_type`, `responsible_sector`, `total_amount > 0`, `deadline_date`)
-- Barra de progresso (X/5)
-- Botão **"Validar proposta"**:
-  - Habilitado apenas quando todos os 5 itens marcados
-  - Ao clicar: seta `validated_at = now()`, `validated_by = auth.uid()` e salva
-- Badge de status: "Validada em DD/MM/YYYY por {nome}" quando `validated_at` existir
-- Botão "Invalidar" (apenas admin/responsável) para refazer validação se algo mudar
+## 4. Frontend
+**`src/pages/DevisDetail.tsx`:**
+- Botão **"Enviar proposta"** (ícone `Send`) ao lado de Editar
+  - Disabled se: não validado / sem e-mail do cliente / já enviado
+  - Tooltip explicando bloqueio
+- Modal `SendProposalDialog`:
+  - Preview do e-mail (renderiza HTML do template com dados reais)
+  - Campo editável: e-mail destinatário (default `client.email`)
+  - Campo editável: mensagem adicional opcional
+  - Botões "Cancelar" / "Confirmar envio"
+- Após envio: toast sucesso, exibe badge "Enviada em DD/MM/YYYY HH:mm para {email}"
 
-## 3. Integração em `DevisDetail.tsx`
+**Nova página pública `src/pages/AceitarProposta.tsx`** (rota `/proposta/aceite/:token`, fora do `AppLayout`):
+- Busca dados via `accept-devis-proposal` GET
+- Mostra resumo da proposta + botão "Aceitar proposta"
+- Confirmação após aceite + estado "já aceita anteriormente"
+- Adicionar rota em `App.tsx`
 
-- Renderizar `<ValidationChecklist />` logo após o card "Informações"
-- Adicionar campo **"Prazo (deadline)"** no form (DatePicker) na seção Informações, ao lado de "Data da reunião"
-- No `update` mutation, persistir os 5 booleanos + `deadline_date`
-
-## 4. Bloqueio de envio da proposta
-
-No select de status (modo edição) de `DevisDetail.tsx`:
-- Se `validated_at` for nulo, **desabilitar** as opções de status posteriores ao envio:
-  - `enviada_ao_cliente`, `aguardando_aceite`, `aceita`, `rejeitada`, `cobranca_pendente`, `entrada_recebida`, `enviado_para_operacao`
-- Tooltip / texto explicativo: "Valide a proposta antes de enviar ao cliente"
-
-No Kanban (`DevisKanban.tsx`):
-- No `onDragEnd`: se destino é um dos status bloqueados acima e `validated_at` é nulo → cancelar drop, mostrar toast "É necessário validar a proposta antes de enviá-la ao cliente"
-
-## 5. Detalhes técnicos
-- Validação é **revogável**: se usuário editar campos críticos depois de validar, mostrar aviso amarelo "Dados alterados após validação — revalide" (compara `updated_at` com `validated_at`)
+## 5. Detalhes
+- Reaproveita `STATUSES_REQUIRING_VALIDATION` (já bloqueia mover para `enviada_ao_cliente` sem validação)
 - Sem novas dependências
-- Reaproveita `Checkbox`, `Card`, `Button`, `Badge` já existentes
+- O Kanban já bloqueia drag-and-drop para `enviada_ao_cliente` sem validação — mantém consistência
 
 ## Ordem de execução
-1. Migração: adicionar 8 colunas em `devis`
-2. Criar `src/components/devis/ValidationChecklist.tsx`
-3. Atualizar `DevisDetail.tsx` (campo deadline + render do checklist + bloqueio no select de status + persistência)
-4. Atualizar `DevisKanban.tsx` (bloqueio no drag-and-drop)
+1. Setup email infra + scaffold transactional (se necessário)
+2. Migração: adicionar 5 colunas em `devis`
+3. Criar template `proposal-to-client.tsx` + registrar
+4. Criar edge functions `send-devis-proposal` e `accept-devis-proposal`
+5. Criar `SendProposalDialog.tsx` + integrar em `DevisDetail.tsx`
+6. Criar página pública `AceitarProposta.tsx` + rota
