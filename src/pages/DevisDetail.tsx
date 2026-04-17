@@ -69,9 +69,14 @@ export default function DevisDetail() {
 
   const update = useMutation({
     mutationFn: async () => {
+      // Bloqueio: status que exige validação não pode ser salvo se ainda não validado
+      if (requiresValidation(form.status) && !devis.validated_at) {
+        throw new Error("Valide a proposta antes de mover para este status.");
+      }
       const payload = {
         client_id: form.client_id || null,
         meeting_date: form.meeting_date ? format(form.meeting_date, "yyyy-MM-dd") : null,
+        deadline_date: form.deadline_date ? format(form.deadline_date, "yyyy-MM-dd") : null,
         commercial_responsible: form.commercial_responsible || null,
         meeting_summary: form.meeting_summary || null,
         meeting_report: form.meeting_report || null,
@@ -84,6 +89,11 @@ export default function DevisDetail() {
         responsible_sector: form.responsible_sector || null,
         scope_description: form.scope_description || null,
         proposal_structure: form.proposal_structure || null,
+        validation_client_confirmed: !!form.validation_client_confirmed,
+        validation_service_confirmed: !!form.validation_service_confirmed,
+        validation_sector_defined: !!form.validation_sector_defined,
+        validation_amount_confirmed: !!form.validation_amount_confirmed,
+        validation_deadline_defined: !!form.validation_deadline_defined,
       };
       const { error } = await supabase.from("devis").update(payload).eq("id", id!);
       if (error) throw error;
