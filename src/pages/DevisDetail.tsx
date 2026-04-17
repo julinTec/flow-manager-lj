@@ -223,6 +223,24 @@ export default function DevisDetail() {
             ) : <p className="font-medium mt-1">{devis.meeting_date ? format(parseISO(devis.meeting_date), "dd/MM/yyyy") : "—"}</p>}
           </div>
 
+          {/* Prazo (deadline) */}
+          <div>
+            <Label>Prazo (deadline)</Label>
+            {editing ? (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("w-full justify-start font-normal", !form.deadline_date && "text-muted-foreground")}>
+                    <CalendarIcon className="h-4 w-4 mr-2" />
+                    {form.deadline_date ? format(form.deadline_date, "dd/MM/yyyy") : "Selecionar"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={form.deadline_date} onSelect={(d) => setForm({ ...form, deadline_date: d, validation_deadline_defined: !!d })} initialFocus className={cn("p-3 pointer-events-auto")} locale={ptBR} />
+                </PopoverContent>
+              </Popover>
+            ) : <p className="font-medium mt-1">{devis.deadline_date ? format(parseISO(devis.deadline_date), "dd/MM/yyyy") : "—"}</p>}
+          </div>
+
           {/* Responsável */}
           <div>
             <Label>Responsável comercial</Label>
