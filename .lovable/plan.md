@@ -1,64 +1,51 @@
 
-# Plano: Envio de proposta ao cliente por e-mail
+# Plano: Aceite público da proposta via link
 
 ## Resumo
-Adicionar botão **"Enviar proposta"** na tela de detalhe do Devis que abre um **modal de preview** com o e-mail pré-gerado. Após confirmar, envia via Lovable Emails, registra `sent_at`, `sent_to` e move o status para `enviada_ao_cliente`. O cliente recebe um link de aceite que abre uma página pública confirmando o aceite (sem login).
+Implementar a funcionalidade de aceite (independente do envio por e-mail, que fica para depois). O cliente acessa um link público com token, vê o resumo da proposta e clica em "Aceitar". Sistema marca `accepted_at`, registra IP e move status para `aceita`.
 
-## Pré-requisitos
-- Domínio de e-mail configurado (Lovable Emails). Se não houver, mostrar dialog de setup primeiro.
-- Devis precisa estar **validado** (`validated_at != null`) — reutiliza a lógica já existente de `requiresValidation`.
-- Cliente precisa ter e-mail cadastrado (`clients.email`).
-
-## 1. Banco de dados (migração)
+## 1. Migração no banco
 Adicionar em `devis`:
-- `sent_at` (timestamptz, nullable)
-- `sent_to` (text, nullable) — e-mail destinatário
-- `sent_by` (uuid, nullable)
-- `accept_token` (uuid, default `gen_random_uuid()`, unique) — token público para aceite
+- `accept_token` (uuid, unique, default `gen_random_uuid()`) — token público no link
 - `accepted_at` (timestamptz, nullable)
+- `accepted_ip` (text, nullable) — auditoria
+- `sent_at` (timestamptz, nullable) — preparação para etapa de envio
 
-RLS: adicionar policy pública de `SELECT` em `devis` filtrando por `accept_token` (apenas colunas necessárias via view, ou checar token na edge function pública). Optar por **edge function pública** que valida o token e retorna apenas os campos do preview — mais seguro que policy aberta.
+Backfill: gerar `accept_token` para devis existentes.
 
-## 2. Template de e-mail
-- Rodar `email_domain--setup_email_infra` (se ainda não rodado)
-- Rodar `email_domain--scaffold_transactional_email`
-- Criar template `proposal-to-client.tsx` em `_shared/transactional-email-templates/`:
-  - Nome do cliente, título, resumo do serviço/escopo, valor total, valor de entrada, prazo
-  - Botão CTA **"Aceitar proposta"** apontando para `${APP_URL}/proposta/aceite/${accept_token}`
-  - Branding Lundgaard Hub
-- Registrar no `registry.ts`
+## 2. Edge function pública `accept-devis-proposal`
+- `verify_jwt = false`, validada por token
+- Usa `SUPABASE_SERVICE_ROLE_KEY` (acesso restrito pelo token, não expõe RLS aberto)
+- **GET** `?token=...` → retorna preview seguro: título, nome do cliente, valor total, valor de entrada, prazo (`deadline_date`), escopo, `accepted_at`. Nunca expõe IDs internos.
+- **POST** `?token=...` → idempotente:
+  - Se `accepted_at` já existe: retorna sucesso com data anterior
+  - Senão: seta `accepted_at = now()`, `status = 'aceita'`, `accepted_ip` (do header `x-forwarded-for`)
+- Retorna 404 se token inválido
 
-## 3. Edge functions
-- **`send-devis-proposal`** (autenticada): valida que o devis está validado, gera token se não existe, invoca `send-transactional-email` com `templateData`, atualiza `sent_at`/`sent_to`/`sent_by`/`status='enviada_ao_cliente'`.
-- **`accept-devis-proposal`** (pública, `verify_jwt = false`): GET retorna preview do devis pelo token; POST marca `accepted_at = now()` e move status para `aceita`.
+## 3. Página pública `src/pages/AceitarProposta.tsx`
+- Rota `/proposta/aceite/:token` em `App.tsx`, **fora** do `AppLayout` (sem sidebar, sem login)
+- Estados: `loading`, `not_found`, `already_accepted`, `ready`, `success`
+- UI limpa com branding Lundgaard:
+  - Header com logo
+  - Card central com resumo: título, "Para: {cliente}", escopo, valor total, valor de entrada, prazo
+  - Botão grande **"Aceitar proposta"**
+  - Após aceite: tela verde de confirmação com data/hora formatada e mensagem "Em breve nossa equipe entrará em contato"
+- Responsivo (mobile-first)
 
-## 4. Frontend
-**`src/pages/DevisDetail.tsx`:**
-- Botão **"Enviar proposta"** (ícone `Send`) ao lado de Editar
-  - Disabled se: não validado / sem e-mail do cliente / já enviado
-  - Tooltip explicando bloqueio
-- Modal `SendProposalDialog`:
-  - Preview do e-mail (renderiza HTML do template com dados reais)
-  - Campo editável: e-mail destinatário (default `client.email`)
-  - Campo editável: mensagem adicional opcional
-  - Botões "Cancelar" / "Confirmar envio"
-- Após envio: toast sucesso, exibe badge "Enviada em DD/MM/YYYY HH:mm para {email}"
-
-**Nova página pública `src/pages/AceitarProposta.tsx`** (rota `/proposta/aceite/:token`, fora do `AppLayout`):
-- Busca dados via `accept-devis-proposal` GET
-- Mostra resumo da proposta + botão "Aceitar proposta"
-- Confirmação após aceite + estado "já aceita anteriormente"
-- Adicionar rota em `App.tsx`
+## 4. Reflexo no app interno (`DevisDetail.tsx`)
+- Badge verde **"Aceita pelo cliente em DD/MM/YYYY HH:mm"** quando `accepted_at` existir
+- Botão **"Copiar link de aceite"** (ícone `Link`) — copia `${origin}/proposta/aceite/${accept_token}` para clipboard
+  - Visível apenas quando devis está validado (`validated_at != null`)
+  - Toast "Link copiado" ao clicar
+  - Esse mesmo botão serve para teste agora e continua útil depois (para reenviar link manualmente)
 
 ## 5. Detalhes
-- Reaproveita `STATUSES_REQUIRING_VALIDATION` (já bloqueia mover para `enviada_ao_cliente` sem validação)
-- Sem novas dependências
-- O Kanban já bloqueia drag-and-drop para `enviada_ao_cliente` sem validação — mantém consistência
+- Status `aceita` já existe em `devisStatus.ts` — Kanban e listagens refletem automaticamente
+- Sem dependência do envio por e-mail (que fica para próxima etapa)
+- Sem novas dependências npm
 
 ## Ordem de execução
-1. Setup email infra + scaffold transactional (se necessário)
-2. Migração: adicionar 5 colunas em `devis`
-3. Criar template `proposal-to-client.tsx` + registrar
-4. Criar edge functions `send-devis-proposal` e `accept-devis-proposal`
-5. Criar `SendProposalDialog.tsx` + integrar em `DevisDetail.tsx`
-6. Criar página pública `AceitarProposta.tsx` + rota
+1. Migração: 4 colunas + backfill de tokens
+2. Edge function `accept-devis-proposal` (GET + POST)
+3. Página `AceitarProposta.tsx` + rota pública em `App.tsx`
+4. Botão "Copiar link" + badge de aceite em `DevisDetail.tsx`
