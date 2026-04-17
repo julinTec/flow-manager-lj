@@ -293,6 +293,7 @@ export type Database = {
           commercial_responsible: string | null
           created_at: string
           created_by: string | null
+          deadline_date: string | null
           description: string | null
           down_payment_amount: number
           final_charge_generated: boolean | null
@@ -311,6 +312,13 @@ export type Database = {
           title: string
           total_amount: number
           updated_at: string
+          validated_at: string | null
+          validated_by: string | null
+          validation_amount_confirmed: boolean
+          validation_client_confirmed: boolean
+          validation_deadline_defined: boolean
+          validation_sector_defined: boolean
+          validation_service_confirmed: boolean
         }
         Insert: {
           approved_at?: string | null
@@ -319,6 +327,7 @@ export type Database = {
           commercial_responsible?: string | null
           created_at?: string
           created_by?: string | null
+          deadline_date?: string | null
           description?: string | null
           down_payment_amount?: number
           final_charge_generated?: boolean | null
@@ -337,6 +346,13 @@ export type Database = {
           title: string
           total_amount?: number
           updated_at?: string
+          validated_at?: string | null
+          validated_by?: string | null
+          validation_amount_confirmed?: boolean
+          validation_client_confirmed?: boolean
+          validation_deadline_defined?: boolean
+          validation_sector_defined?: boolean
+          validation_service_confirmed?: boolean
         }
         Update: {
           approved_at?: string | null
@@ -345,6 +361,7 @@ export type Database = {
           commercial_responsible?: string | null
           created_at?: string
           created_by?: string | null
+          deadline_date?: string | null
           description?: string | null
           down_payment_amount?: number
           final_charge_generated?: boolean | null
@@ -363,6 +380,13 @@ export type Database = {
           title?: string
           total_amount?: number
           updated_at?: string
+          validated_at?: string | null
+          validated_by?: string | null
+          validation_amount_confirmed?: boolean
+          validation_client_confirmed?: boolean
+          validation_deadline_defined?: boolean
+          validation_sector_defined?: boolean
+          validation_service_confirmed?: boolean
         }
         Relationships: [
           {
