@@ -16,13 +16,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { toast } from "sonner";
-import { Plus, Users, FileText, Eye, Pencil, CalendarIcon, Filter, LayoutGrid, List } from "lucide-react";
+import { Plus, Users, FileText, Eye, Pencil, CalendarIcon, Filter, LayoutGrid, List, Sparkles, Loader2 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { ALL_STATUSES, STATUS_LABELS as statusLabels, STATUS_BADGE_CLASSES as devisStatusColors } from "@/lib/devisStatus";
 import DevisKanban from "@/components/devis/DevisKanban";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import AISuggestionsBlock, { type AISuggestions } from "@/components/devis/AISuggestionsBlock";
 
 const fmtBRL = (n: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(n) || 0);
@@ -44,6 +45,7 @@ type DevisForm = {
   meeting_date: Date | undefined;
   commercial_responsible: string;
   meeting_summary: string;
+  meeting_report: string;
   status: string;
   total_amount: string;
   down_payment_amount: string;
@@ -56,6 +58,7 @@ const emptyDevis: DevisForm = {
   meeting_date: undefined,
   commercial_responsible: "",
   meeting_summary: "",
+  meeting_report: "",
   status: "rascunho",
   total_amount: "",
   down_payment_amount: "",
@@ -79,7 +82,9 @@ export default function Comercial() {
   const [filterStart, setFilterStart] = useState<Date | undefined>();
   const [filterEnd, setFilterEnd] = useState<Date | undefined>();
   const [view, setView] = useState<"list" | "kanban">("list");
-
+  const [aiSuggestions, setAiSuggestions] = useState<AISuggestions | null>(null);
+  const [aiAccepted, setAiAccepted] = useState<Partial<AISuggestions>>({});
+  const [generating, setGenerating] = useState(false);
   const { data: clients = [] } = useQuery({
     queryKey: ["clients"],
     queryFn: async () => {
@@ -158,12 +163,17 @@ export default function Comercial() {
         meeting_date: form.meeting_date ? format(form.meeting_date, "yyyy-MM-dd") : null,
         commercial_responsible: form.commercial_responsible || null,
         meeting_summary: form.meeting_summary || null,
+        meeting_report: form.meeting_report || null,
         status: form.status as any,
         total_amount: total,
         down_payment_amount: down,
         notes: form.notes || null,
         title,
         created_by: user?.id,
+        service_type: aiAccepted.service_type || null,
+        responsible_sector: aiAccepted.responsible_sector || null,
+        scope_description: aiAccepted.scope_description || null,
+        proposal_structure: aiAccepted.proposal_structure || null,
       });
       if (error) throw error;
     },
@@ -172,10 +182,33 @@ export default function Comercial() {
       queryClient.invalidateQueries({ queryKey: ["devis"] });
       setDevisDialogOpen(false);
       setDevisForm(emptyDevis);
+      setAiSuggestions(null);
+      setAiAccepted({});
     },
     onError: (e: any) => toast.error(e.message),
   });
 
+  const handleGenerateProposal = async () => {
+    if (!devisForm.meeting_report?.trim()) return;
+    setGenerating(true);
+    try {
+      const client = clientsById[devisForm.client_id];
+      const { data, error } = await supabase.functions.invoke("generate-devis-proposal", {
+        body: {
+          meeting_report: devisForm.meeting_report,
+          client_name: client?.name,
+          total_amount: Number(devisForm.total_amount) || undefined,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setAiSuggestions(data.suggestions);
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao gerar proposta");
+    } finally {
+      setGenerating(false);
+    }
+  };
   const openEditClient = (c: any) => {
     setClientForm({
       id: c.id,
@@ -272,7 +305,7 @@ export default function Comercial() {
               <ToggleGroupItem value="list" aria-label="Lista" className="gap-2"><List className="h-4 w-4" /> Lista</ToggleGroupItem>
               <ToggleGroupItem value="kanban" aria-label="Kanban" className="gap-2"><LayoutGrid className="h-4 w-4" /> Kanban</ToggleGroupItem>
             </ToggleGroup>
-            <Dialog open={devisDialogOpen} onOpenChange={(o) => { setDevisDialogOpen(o); if (!o) setDevisForm(emptyDevis); }}>
+            <Dialog open={devisDialogOpen} onOpenChange={(o) => { setDevisDialogOpen(o); if (!o) { setDevisForm(emptyDevis); setAiSuggestions(null); setAiAccepted({}); } }}>
               <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" /> Novo Devis</Button></DialogTrigger>
               <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader><DialogTitle>Novo Devis</DialogTitle></DialogHeader>
@@ -311,6 +344,34 @@ export default function Comercial() {
                     <Label>Resumo da reunião</Label>
                     <Textarea rows={3} value={devisForm.meeting_summary} onChange={(e) => setDevisForm({ ...devisForm, meeting_summary: e.target.value })} />
                   </div>
+                  <div className="md:col-span-2 space-y-2">
+                    <Label>Relatório da reunião</Label>
+                    <Textarea
+                      rows={6}
+                      value={devisForm.meeting_report}
+                      onChange={(e) => setDevisForm({ ...devisForm, meeting_report: e.target.value })}
+                      placeholder="Descreva a reunião em detalhes para a IA gerar sugestões de proposta..."
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleGenerateProposal}
+                      disabled={generating || !devisForm.meeting_report?.trim()}
+                    >
+                      {generating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
+                      {generating ? "Gerando..." : "Gerar proposta automaticamente"}
+                    </Button>
+                  </div>
+                  {aiSuggestions && (
+                    <div className="md:col-span-2">
+                      <AISuggestionsBlock
+                        suggestions={aiSuggestions}
+                        onAccept={(key, value) => setAiAccepted((s) => ({ ...s, [key]: value }))}
+                        onAcceptAll={(values) => setAiAccepted(values)}
+                        onDismiss={() => setAiSuggestions(null)}
+                      />
+                    </div>
+                  )}
                   <div>
                     <Label>Status</Label>
                     <Select value={devisForm.status} onValueChange={(v) => setDevisForm({ ...devisForm, status: v })}>

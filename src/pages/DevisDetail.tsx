@@ -12,12 +12,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { toast } from "sonner";
-import { ArrowLeft, Pencil, Save, X, CalendarIcon } from "lucide-react";
+import { ArrowLeft, Pencil, Save, X, CalendarIcon, Sparkles, Loader2 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-
 import { ALL_STATUSES, STATUS_LABELS as statusLabels, STATUS_BADGE_CLASSES as devisStatusColors } from "@/lib/devisStatus";
+import AISuggestionsBlock, { type AISuggestions } from "@/components/devis/AISuggestionsBlock";
 
 const fmtBRL = (n: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(n) || 0);
@@ -28,6 +28,8 @@ export default function DevisDetail() {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<any>(null);
+  const [aiSuggestions, setAiSuggestions] = useState<AISuggestions | null>(null);
+  const [generating, setGenerating] = useState(false);
 
   const { data: devis, isLoading } = useQuery({
     queryKey: ["devis", id],
@@ -70,11 +72,16 @@ export default function DevisDetail() {
         meeting_date: form.meeting_date ? format(form.meeting_date, "yyyy-MM-dd") : null,
         commercial_responsible: form.commercial_responsible || null,
         meeting_summary: form.meeting_summary || null,
+        meeting_report: form.meeting_report || null,
         status: form.status,
         total_amount: Number(form.total_amount) || 0,
         down_payment_amount: Number(form.down_payment_amount) || 0,
         notes: form.notes || null,
         title: form.title,
+        service_type: form.service_type || null,
+        responsible_sector: form.responsible_sector || null,
+        scope_description: form.scope_description || null,
+        proposal_structure: form.proposal_structure || null,
       };
       const { error } = await supabase.from("devis").update(payload).eq("id", id!);
       if (error) throw error;
@@ -84,9 +91,32 @@ export default function DevisDetail() {
       queryClient.invalidateQueries({ queryKey: ["devis"] });
       queryClient.invalidateQueries({ queryKey: ["devis", id] });
       setEditing(false);
+      setAiSuggestions(null);
     },
     onError: (e: any) => toast.error(e.message),
   });
+
+  const handleGenerate = async () => {
+    if (!form.meeting_report?.trim()) return;
+    setGenerating(true);
+    try {
+      const client = clientsById[form.client_id];
+      const { data, error } = await supabase.functions.invoke("generate-devis-proposal", {
+        body: {
+          meeting_report: form.meeting_report,
+          client_name: client?.name,
+          total_amount: Number(form.total_amount) || undefined,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setAiSuggestions(data.suggestions);
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao gerar proposta");
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   if (isLoading || !form) return <div className="text-muted-foreground">Carregando...</div>;
   if (!devis) return <div className="text-muted-foreground">Devis não encontrado.</div>;
@@ -109,7 +139,7 @@ export default function DevisDetail() {
         <div className="flex gap-2">
           {editing ? (
             <>
-              <Button variant="outline" onClick={() => { setEditing(false); setForm({ ...devis, meeting_date: devis.meeting_date ? parseISO(devis.meeting_date) : undefined, total_amount: String(devis.total_amount ?? ""), down_payment_amount: String(devis.down_payment_amount ?? "") }); }}>
+              <Button variant="outline" onClick={() => { setEditing(false); setAiSuggestions(null); setForm({ ...devis, meeting_date: devis.meeting_date ? parseISO(devis.meeting_date) : undefined, total_amount: String(devis.total_amount ?? ""), down_payment_amount: String(devis.down_payment_amount ?? "") }); }}>
                 <X className="h-4 w-4 mr-2" /> Cancelar
               </Button>
               <Button onClick={() => update.mutate()} disabled={update.isPending}>
@@ -205,6 +235,24 @@ export default function DevisDetail() {
             ) : <p className="font-medium mt-1">{devis.title}</p>}
           </div>
 
+          {/* Relatório da reunião */}
+          <div className="md:col-span-2">
+            <Label>Relatório da reunião</Label>
+            {editing ? (
+              <div className="space-y-2">
+                <Textarea rows={8} value={form.meeting_report ?? ""} onChange={(e) => setForm({ ...form, meeting_report: e.target.value })} placeholder="Descreva a reunião em detalhes para a IA gerar sugestões de proposta..." />
+                <Button
+                  variant="outline"
+                  onClick={handleGenerate}
+                  disabled={generating || !form.meeting_report?.trim()}
+                >
+                  {generating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
+                  {generating ? "Gerando..." : "Gerar proposta automaticamente"}
+                </Button>
+              </div>
+            ) : <p className="mt-1 whitespace-pre-wrap text-muted-foreground">{devis.meeting_report || "—"}</p>}
+          </div>
+
           {/* Resumo */}
           <div className="md:col-span-2">
             <Label>Resumo da reunião</Label>
@@ -220,8 +268,38 @@ export default function DevisDetail() {
               <Textarea rows={3} value={form.notes ?? ""} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
             ) : <p className="mt-1 whitespace-pre-wrap text-muted-foreground">{devis.notes || "—"}</p>}
           </div>
+
+          {/* Campos da proposta — editáveis */}
+          {editing && (
+            <>
+              <div className="md:col-span-2"><Label>Tipo de serviço</Label><Input value={form.service_type ?? ""} onChange={(e) => setForm({ ...form, service_type: e.target.value })} /></div>
+              <div className="md:col-span-2"><Label>Setor responsável</Label><Input value={form.responsible_sector ?? ""} onChange={(e) => setForm({ ...form, responsible_sector: e.target.value })} /></div>
+              <div className="md:col-span-2"><Label>Descrição do escopo</Label><Textarea rows={5} value={form.scope_description ?? ""} onChange={(e) => setForm({ ...form, scope_description: e.target.value })} /></div>
+              <div className="md:col-span-2"><Label>Estrutura da proposta</Label><Textarea rows={8} value={form.proposal_structure ?? ""} onChange={(e) => setForm({ ...form, proposal_structure: e.target.value })} /></div>
+            </>
+          )}
+
+          {/* Campos da proposta — somente leitura */}
+          {!editing && (devis.service_type || devis.responsible_sector || devis.scope_description || devis.proposal_structure) && (
+            <>
+              {devis.service_type && <div className="md:col-span-2"><Label>Tipo de serviço</Label><p className="font-medium mt-1">{devis.service_type}</p></div>}
+              {devis.responsible_sector && <div className="md:col-span-2"><Label>Setor responsável</Label><p className="font-medium mt-1">{devis.responsible_sector}</p></div>}
+              {devis.scope_description && <div className="md:col-span-2"><Label>Descrição do escopo</Label><p className="mt-1 whitespace-pre-wrap text-muted-foreground">{devis.scope_description}</p></div>}
+              {devis.proposal_structure && <div className="md:col-span-2"><Label>Estrutura da proposta</Label><p className="mt-1 whitespace-pre-wrap text-muted-foreground">{devis.proposal_structure}</p></div>}
+            </>
+          )}
         </CardContent>
       </Card>
+
+      {/* AI Suggestions Block */}
+      {editing && aiSuggestions && (
+        <AISuggestionsBlock
+          suggestions={aiSuggestions}
+          onAccept={(key, value) => setForm((f: any) => ({ ...f, [key]: value }))}
+          onAcceptAll={(values) => setForm((f: any) => ({ ...f, ...values }))}
+          onDismiss={() => setAiSuggestions(null)}
+        />
+      )}
     </div>
   );
 }
