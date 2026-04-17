@@ -22,6 +22,7 @@ import {
   STATUS_LABELS,
   STATUS_COLUMN_ACCENT,
   STATUS_BADGE_CLASSES,
+  requiresValidation,
 } from "@/lib/devisStatus";
 import { cn } from "@/lib/utils";
 
