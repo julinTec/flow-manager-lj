@@ -17,21 +17,7 @@ import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 
-const statusLabels: Record<string, string> = {
-  rascunho: "Rascunho",
-  enviado: "Enviado",
-  aprovado: "Aprovado",
-  rejeitado: "Rejeitado",
-  convertido: "Convertido",
-};
-
-const devisStatusColors: Record<string, string> = {
-  rascunho: "bg-muted text-muted-foreground",
-  enviado: "bg-primary/20 text-primary border-primary/30",
-  aprovado: "bg-success/20 text-success border-success/30",
-  rejeitado: "bg-destructive/20 text-destructive border-destructive/30",
-  convertido: "bg-warning/20 text-warning border-warning/30",
-};
+import { ALL_STATUSES, STATUS_LABELS as statusLabels, STATUS_BADGE_CLASSES as devisStatusColors } from "@/lib/devisStatus";
 
 const fmtBRL = (n: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(n) || 0);
