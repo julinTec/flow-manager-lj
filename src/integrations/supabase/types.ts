@@ -191,6 +191,7 @@ export type Database = {
           name: string
           notes: string | null
           phone: string | null
+          type: string
           updated_at: string
         }
         Insert: {
@@ -205,6 +206,7 @@ export type Database = {
           name: string
           notes?: string | null
           phone?: string | null
+          type?: string
           updated_at?: string
         }
         Update: {
@@ -219,6 +221,7 @@ export type Database = {
           name?: string
           notes?: string | null
           phone?: string | null
+          type?: string
           updated_at?: string
         }
         Relationships: [
@@ -287,12 +290,17 @@ export type Database = {
           approved_at: string | null
           business_unit: string | null
           client_id: string | null
+          commercial_responsible: string | null
           created_at: string
           created_by: string | null
           description: string | null
+          down_payment_amount: number
           final_charge_generated: boolean | null
           id: string
           initial_charge_generated: boolean | null
+          meeting_date: string | null
+          meeting_summary: string | null
+          notes: string | null
           reference_number: string | null
           status: Database["public"]["Enums"]["devis_status"]
           title: string
@@ -303,12 +311,17 @@ export type Database = {
           approved_at?: string | null
           business_unit?: string | null
           client_id?: string | null
+          commercial_responsible?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
+          down_payment_amount?: number
           final_charge_generated?: boolean | null
           id?: string
           initial_charge_generated?: boolean | null
+          meeting_date?: string | null
+          meeting_summary?: string | null
+          notes?: string | null
           reference_number?: string | null
           status?: Database["public"]["Enums"]["devis_status"]
           title: string
@@ -319,12 +332,17 @@ export type Database = {
           approved_at?: string | null
           business_unit?: string | null
           client_id?: string | null
+          commercial_responsible?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
+          down_payment_amount?: number
           final_charge_generated?: boolean | null
           id?: string
           initial_charge_generated?: boolean | null
+          meeting_date?: string | null
+          meeting_summary?: string | null
+          notes?: string | null
           reference_number?: string | null
           status?: Database["public"]["Enums"]["devis_status"]
           title?: string
