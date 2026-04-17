@@ -335,6 +335,15 @@ export default function DevisDetail() {
         </CardContent>
       </Card>
 
+      {/* Validação Comercial */}
+      <ValidationChecklist
+        devis={devis}
+        form={form}
+        editing={editing}
+        onToggle={(key, value) => setForm((f: any) => ({ ...f, [key]: value }))}
+        profilesById={profilesById}
+      />
+
       {/* AI Suggestions Block */}
       {editing && aiSuggestions && (
         <AISuggestionsBlock
