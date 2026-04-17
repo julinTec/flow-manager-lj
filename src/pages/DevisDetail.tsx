@@ -60,6 +60,7 @@ export default function DevisDetail() {
       setForm({
         ...devis,
         meeting_date: devis.meeting_date ? parseISO(devis.meeting_date) : undefined,
+        deadline_date: devis.deadline_date ? parseISO(devis.deadline_date) : undefined,
         total_amount: String(devis.total_amount ?? ""),
         down_payment_amount: String(devis.down_payment_amount ?? ""),
       });
