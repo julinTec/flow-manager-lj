@@ -77,3 +77,16 @@ export const STATUS_COLUMN_ACCENT: Record<string, string> = {
 
 export const getStatusLabel = (s: string) => STATUS_LABELS[s] ?? s;
 export const getStatusBadgeClass = (s: string) => STATUS_BADGE_CLASSES[s] ?? "bg-muted text-muted-foreground";
+
+// Status que exigem que a proposta esteja validada (Validação Comercial concluída)
+export const STATUSES_REQUIRING_VALIDATION: string[] = [
+  "enviada_ao_cliente",
+  "aguardando_aceite",
+  "aceita",
+  "rejeitada",
+  "cobranca_pendente",
+  "entrada_recebida",
+  "enviado_para_operacao",
+];
+
+export const requiresValidation = (status: string) => STATUSES_REQUIRING_VALIDATION.includes(status);
