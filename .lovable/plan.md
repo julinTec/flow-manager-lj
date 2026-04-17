@@ -1,78 +1,75 @@
 
-
-# Plano: Estruturar módulo Devis (Comercial)
+# Plano: Pipeline Kanban para Devis
 
 ## Resumo
-Reestruturar o módulo Devis para ser o centro comercial: cadastro completo de Clientes (com tipo PF/PJ) e Propostas (Devis) com data de reunião, responsável comercial, resumo, valor total e valor de entrada (50% automático). Adicionar listagem com filtros e tela de detalhe editável.
+Evoluir o módulo Devis com 11 novos status de pipeline comercial, cores visuais e uma visualização Kanban com drag-and-drop entre colunas.
 
-## Alterações no Banco de Dados
+## 1. Banco de Dados (migração)
 
-### Tabela `clients` — adicionar
-- `type` (text: 'PF' | 'PJ') — default 'PJ'
-- (campos `email`, `phone`, `document`, `notes` já existem; `address` e `city` ficam opcionais/ocultos)
+Atualizar enum `devis_status` adicionando os novos valores (mantendo os antigos para compatibilidade):
+- `reuniao_realizada`
+- `proposta_em_geracao`
+- `aguardando_validacao`
+- `pronta_para_envio`
+- `enviada_ao_cliente`
+- `aguardando_aceite`
+- `aceita`
+- `rejeitada`
+- `cobranca_pendente`
+- `entrada_recebida`
+- `enviado_para_operacao`
 
-### Tabela `devis` — adicionar
-- `meeting_date` (date)
-- `commercial_responsible` (uuid → referencia profiles.user_id, opcional)
-- `meeting_summary` (text)
-- `down_payment_amount` (numeric) — calculado como 50% do `total_amount`
-- `notes` (text)
+(Postgres: `ALTER TYPE devis_status ADD VALUE IF NOT EXISTS ...` para cada um.)
 
-Trigger: ao inserir/atualizar `total_amount`, recalcular `down_payment_amount = total_amount * 0.5` automaticamente.
+## 2. Mapa de status (centralizado)
 
-## Alterações no Frontend
+Criar `src/lib/devisStatus.ts` com:
+- Lista ordenada dos 11 status do pipeline
+- Labels em PT-BR
+- Classes Tailwind de cor por status (badges + borda da coluna kanban), ex.:
+  - reuniao_realizada → slate
+  - proposta_em_geracao → blue
+  - aguardando_validacao → amber
+  - pronta_para_envio → indigo
+  - enviada_ao_cliente → cyan
+  - aguardando_aceite → yellow
+  - aceita → green
+  - rejeitada → red
+  - cobranca_pendente → orange
+  - entrada_recebida → emerald
+  - enviado_para_operacao → violet
 
-### 1. `src/pages/Comercial.tsx` → reorganizar (manter rota `/comercial`)
-Estrutura em **abas**:
-- **Clientes** (lista + criar/editar)
-- **Devis** (lista com filtros + criar)
+Usar este mapa em `Comercial.tsx` e `DevisDetail.tsx` para substituir os atuais `statusLabels` / `devisStatusColors`.
 
-### 2. Cadastro de Cliente (modal)
-Campos: Nome, Email, Telefone, Documento, **Tipo (PF/PJ)** via Select, Observações.
+## 3. Página `Comercial.tsx` — adicionar visualização Kanban
 
-### 3. Lista de Clientes
-Tabela: Nome, Tipo, Email, Telefone, Documento, Ações (editar).
+Dentro da aba **Devis**, adicionar um sub-toggle (Tabs ou ToggleGroup): **Lista** | **Kanban**.
 
-### 4. Cadastro de Devis (modal)
-Campos:
-- Cliente (Select com busca)
-- Data da reunião (DatePicker)
-- Responsável comercial (Select de usuários do sistema)
-- Resumo da reunião (Textarea)
-- Status (Select: rascunho/enviado/aprovado/rejeitado/convertido)
-- Valor total (Input numérico)
-- Valor de entrada (Input — auto-preenchido com 50%, editável)
-- Observações (Textarea)
+- **Lista**: mantém a tabela atual, mas com novas opções de status no filtro e no select de criação.
+- **Kanban**: nova view com colunas roláveis horizontalmente.
 
-### 5. Lista de Devis com filtros
-Tabela: Cliente, Status, Valor Total, Valor Entrada, Data Reunião, Responsável, Ações (ver/editar).
+## 4. Componente Kanban (`src/components/devis/DevisKanban.tsx`)
 
-Filtros no topo:
-- Status (Select)
-- Cliente (Select)
-- Período (Data início / Data fim)
+- Layout: `flex gap-4 overflow-x-auto` com 11 colunas de largura fixa (~280px).
+- Cada coluna mostra: título (label do status com cor), contador, lista de cards.
+- Card mostra: Cliente, Valor (BRL), Responsável (nome), Data da reunião. Clique abre `/comercial/devis/:id`.
+- Drag-and-drop com **@dnd-kit/core** + **@dnd-kit/sortable** (já comum no stack; adicionar via npm).
+- Ao soltar em outra coluna: chamar `supabase.from('devis').update({ status: novoStatus }).eq('id', cardId)` e invalidar React Query (atualização otimista).
+- Respeitar filtros ativos (cliente, período) — status filter fica desabilitado/ignorado no modo Kanban.
 
-### 6. Tela de detalhe do Devis
-Nova rota `/comercial/devis/:id` (`src/pages/DevisDetail.tsx`):
-- Exibe todos os campos em layout de card
-- Botão "Editar" abre formulário inline / dialog com todos os campos
-- Botão "Voltar" para a listagem
-- Mostra cliente vinculado, datas, valores formatados em BRL
+## 5. Atualizar selects de status
 
-### 7. Roteamento
-Adicionar `/comercial/devis/:id` em `src/App.tsx` (protegida, mesma proteção atual).
+Em `Comercial.tsx` (criação + filtro) e `DevisDetail.tsx` (edição): popular options a partir do mapa central (inclui novos + antigos para retrocompatibilidade).
 
-## Detalhes técnicos
-- DatePicker: usar Shadcn Calendar+Popover com `pointer-events-auto`
-- Responsável comercial: buscar de `profiles` (lista todos os usuários com role admin ou gerencial)
-- Valor de entrada: calculado no client ao alterar valor total; salvo no banco
-- Filtros: aplicados via query params no React Query
-- Validação com `zod` para os formulários
-- Manter título da página como "Devis" e descrição "Gestão comercial — clientes e propostas"
+## 6. Detalhes técnicos
+- Sem mudança de RLS — policies atuais cobrem update.
+- Atualização otimista no Kanban com rollback em caso de erro (toast).
+- Default de novos Devis continua `rascunho` (mantido).
 
 ## Ordem de execução
-1. Migração: adicionar colunas em `clients` e `devis` + trigger de cálculo do down_payment
-2. Reescrever `src/pages/Comercial.tsx` (abas, formulários, filtros)
-3. Criar `src/pages/DevisDetail.tsx`
-4. Adicionar rota no `src/App.tsx`
-
+1. Migração: estender enum `devis_status`
+2. Criar `src/lib/devisStatus.ts`
+3. Instalar `@dnd-kit/core` e `@dnd-kit/sortable`
+4. Criar `src/components/devis/DevisKanban.tsx`
+5. Atualizar `src/pages/Comercial.tsx` (toggle Lista/Kanban + selects)
+6. Atualizar `src/pages/DevisDetail.tsx` (selects + cores)
