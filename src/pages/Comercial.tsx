@@ -305,7 +305,7 @@ export default function Comercial() {
               <ToggleGroupItem value="list" aria-label="Lista" className="gap-2"><List className="h-4 w-4" /> Lista</ToggleGroupItem>
               <ToggleGroupItem value="kanban" aria-label="Kanban" className="gap-2"><LayoutGrid className="h-4 w-4" /> Kanban</ToggleGroupItem>
             </ToggleGroup>
-            <Dialog open={devisDialogOpen} onOpenChange={(o) => { setDevisDialogOpen(o); if (!o) setDevisForm(emptyDevis); }}>
+            <Dialog open={devisDialogOpen} onOpenChange={(o) => { setDevisDialogOpen(o); if (!o) { setDevisForm(emptyDevis); setAiSuggestions(null); setAiAccepted({}); } }}>
               <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" /> Novo Devis</Button></DialogTrigger>
               <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader><DialogTitle>Novo Devis</DialogTitle></DialogHeader>
@@ -344,6 +344,34 @@ export default function Comercial() {
                     <Label>Resumo da reunião</Label>
                     <Textarea rows={3} value={devisForm.meeting_summary} onChange={(e) => setDevisForm({ ...devisForm, meeting_summary: e.target.value })} />
                   </div>
+                  <div className="md:col-span-2 space-y-2">
+                    <Label>Relatório da reunião</Label>
+                    <Textarea
+                      rows={6}
+                      value={devisForm.meeting_report}
+                      onChange={(e) => setDevisForm({ ...devisForm, meeting_report: e.target.value })}
+                      placeholder="Descreva a reunião em detalhes para a IA gerar sugestões de proposta..."
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleGenerateProposal}
+                      disabled={generating || !devisForm.meeting_report?.trim()}
+                    >
+                      {generating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
+                      {generating ? "Gerando..." : "Gerar proposta automaticamente"}
+                    </Button>
+                  </div>
+                  {aiSuggestions && (
+                    <div className="md:col-span-2">
+                      <AISuggestionsBlock
+                        suggestions={aiSuggestions}
+                        onAccept={(key, value) => setAiAccepted((s) => ({ ...s, [key]: value }))}
+                        onAcceptAll={(values) => setAiAccepted(values)}
+                        onDismiss={() => setAiSuggestions(null)}
+                      />
+                    </div>
+                  )}
                   <div>
                     <Label>Status</Label>
                     <Select value={devisForm.status} onValueChange={(v) => setDevisForm({ ...devisForm, status: v })}>
