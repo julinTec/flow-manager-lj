@@ -287,6 +287,9 @@ export type Database = {
       }
       devis: {
         Row: {
+          accept_token: string
+          accepted_at: string | null
+          accepted_ip: string | null
           approved_at: string | null
           business_unit: string | null
           client_id: string | null
@@ -307,6 +310,7 @@ export type Database = {
           reference_number: string | null
           responsible_sector: string | null
           scope_description: string | null
+          sent_at: string | null
           service_type: string | null
           status: Database["public"]["Enums"]["devis_status"]
           title: string
@@ -321,6 +325,9 @@ export type Database = {
           validation_service_confirmed: boolean
         }
         Insert: {
+          accept_token?: string
+          accepted_at?: string | null
+          accepted_ip?: string | null
           approved_at?: string | null
           business_unit?: string | null
           client_id?: string | null
@@ -341,6 +348,7 @@ export type Database = {
           reference_number?: string | null
           responsible_sector?: string | null
           scope_description?: string | null
+          sent_at?: string | null
           service_type?: string | null
           status?: Database["public"]["Enums"]["devis_status"]
           title: string
@@ -355,6 +363,9 @@ export type Database = {
           validation_service_confirmed?: boolean
         }
         Update: {
+          accept_token?: string
+          accepted_at?: string | null
+          accepted_ip?: string | null
           approved_at?: string | null
           business_unit?: string | null
           client_id?: string | null
@@ -375,6 +386,7 @@ export type Database = {
           reference_number?: string | null
           responsible_sector?: string | null
           scope_description?: string | null
+          sent_at?: string | null
           service_type?: string | null
           status?: Database["public"]["Enums"]["devis_status"]
           title?: string
