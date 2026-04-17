@@ -631,6 +631,17 @@ export type Database = {
         | "aprovado"
         | "rejeitado"
         | "convertido"
+        | "reuniao_realizada"
+        | "proposta_em_geracao"
+        | "aguardando_validacao"
+        | "pronta_para_envio"
+        | "enviada_ao_cliente"
+        | "aguardando_aceite"
+        | "aceita"
+        | "rejeitada"
+        | "cobranca_pendente"
+        | "entrada_recebida"
+        | "enviado_para_operacao"
       entry_type: "receita" | "despesa" | "transferencia"
       import_status: "processando" | "concluido" | "erro" | "parcial"
       match_status: "sugerido" | "confirmado" | "rejeitado"
@@ -784,6 +795,17 @@ export const Constants = {
         "aprovado",
         "rejeitado",
         "convertido",
+        "reuniao_realizada",
+        "proposta_em_geracao",
+        "aguardando_validacao",
+        "pronta_para_envio",
+        "enviada_ao_cliente",
+        "aguardando_aceite",
+        "aceita",
+        "rejeitada",
+        "cobranca_pendente",
+        "entrada_recebida",
+        "enviado_para_operacao",
       ],
       entry_type: ["receita", "despesa", "transferencia"],
       import_status: ["processando", "concluido", "erro", "parcial"],
