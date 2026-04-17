@@ -1,48 +1,55 @@
 
-# Plano: Criar case operacional automático ao aceitar proposta
+# Plano: Substituir Dashboard por Hub de Módulos (cards clicáveis)
 
 ## Resumo
-Quando o cliente aceitar a proposta, além da cobrança já gerada, criar automaticamente um registro em `services` (case operacional) vinculado ao cliente e ao devis, com status inicial "A iniciar". Esse case alimenta o módulo Operação.
+Trocar a página `/` (atualmente `Dashboard.tsx` com KPIs) por um **Hub central** estilo grid de cards coloridos — cada card representa um módulo do sistema e leva para a respectiva rota. KPIs ficam por conta da página `/bi` (já existente).
 
-## Análise do existente
-- Tabela `services` já existe com: `devis_id`, `client_id`, `title`, `description`, `status` (enum `service_status`, default `'pendente'`), `business_unit`, `assigned_to`, `expected_end_date`, `start_date`.
-- Edge function `accept-devis-proposal` já cria a cobrança financeira no POST — vamos estender o mesmo fluxo para criar o service.
-- Devis tem `responsible_sector` (setor) e `business_unit` que serão propagados.
-- Precisa verificar se enum `service_status` tem valor `a_iniciar` ou se devemos usar `pendente` (já é default). Provavelmente reutilizar `pendente` e exibir como "A iniciar" no frontend é mais simples, mas o usuário pediu literalmente "A iniciar" — checar enum durante implementação e adicionar valor se faltar.
+## Referência visual
+Imagem do Hub SEFIN: grid responsivo de cards com gradiente sólido por cor, ícone branco grande no topo, título em destaque, subtítulo descritivo. Hover suave com leve elevação.
 
-## 1. Verificação rápida (durante implementação)
-Consultar enum `service_status`. Se `a_iniciar` não existe, migração `ALTER TYPE service_status ADD VALUE 'a_iniciar'`. Caso já exista `pendente` cobrindo a semântica, apenas mapear label "A iniciar" no frontend.
+## 1. Nova página `src/pages/Hub.tsx`
+Grid responsivo (`grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4`) com cabeçalho:
+- Título: **"Lundgaard Hub"**
+- Subtítulo: **"Sistema Central de Gestão Empresarial"**
 
-## 2. Edge function `accept-devis-proposal` — estender POST
-Após criar a cobrança e antes do audit log:
-1. Verificar idempotência: `SELECT id FROM services WHERE devis_id = ? LIMIT 1`. Se já existe, pular.
-2. `INSERT INTO services`:
-   - `devis_id = devis.id`
-   - `client_id = devis.client_id`
-   - `title = devis.title`
-   - `description = devis.scope_description`
-   - `business_unit = devis.business_unit`
-   - `status = 'a_iniciar'` (ou `pendente` se enum não tiver)
-   - `expected_end_date = devis.deadline_date`
-   - Setor responsável: usar `devis.responsible_sector` — como `services` não tem essa coluna hoje, **adicionar** `responsible_sector text` em `services` via migração.
-3. Incluir `service_id` criado no `audit_logs.details` e na resposta da função.
+Cards (um por módulo, baseados no `AppSidebar` e rotas em `App.tsx`):
 
-## 3. Migração mínima
-- `ALTER TABLE services ADD COLUMN IF NOT EXISTS responsible_sector text;`
-- Se necessário: `ALTER TYPE service_status ADD VALUE IF NOT EXISTS 'a_iniciar';`
+| Card | Rota | Ícone (lucide) | Cor (gradiente) |
+|---|---|---|---|
+| Financeiro — Movimentação e fluxo de caixa | `/financeiro` | `DollarSign` | azul |
+| Conciliação — Conciliação bancária | `/conciliacao` | `ArrowLeftRight` | teal |
+| Comercial — Clientes e propostas (Devis) | `/comercial` | `FileText` | roxo |
+| Operação — Cases e serviços | `/operacao` | `Briefcase` | verde-escuro |
+| Gestão — Indicadores e gestão | `/gestao` | `LayoutDashboard` | laranja |
+| BI — Business Intelligence | `/bi` | `BarChart3` | rosa |
+| Admin — Usuários e permissões | `/admin` | `Shield` | cinza-azulado (só para admin) |
 
-## 4. Frontend
-- **`DevisDetail.tsx`**: badge verde **"Case operacional criado"** quando existir service vinculado (consulta leve por `devis_id` ou flag derivada). Link "Ver no módulo Operação".
-- **`Operacao.tsx`**: garantir que a listagem mostre o setor responsável e que o status `a_iniciar` (ou `pendente` mapeado como "A iniciar") seja renderizado corretamente.
-- **`AceitarProposta.tsx`**: sem mudanças (cliente não precisa saber do case interno).
+Filtragem do card **Admin** via `useAuth().userRole === 'admin'`.
 
-## Detalhes
-- Idempotência via lookup por `devis_id` antes do insert (não há unique constraint — adicionar `UNIQUE(devis_id)` na migração para reforçar).
-- Sem novas dependências.
-- Setor responsável vem direto do devis (já preenchido na fase de validação).
+## 2. Componente `ModuleCard`
+Inline na própria página (simples, sem novo arquivo):
+- `Card` com `bg-gradient-to-br` da cor do módulo, `text-white`, `cursor-pointer`
+- Ícone 48px branco no topo
+- Título grande (font-display) + descrição em opacity-90
+- `hover:shadow-lg hover:-translate-y-0.5 transition-all`
+- `onClick` → `navigate(route)`
+- Aspect ratio quadrado-ish via `min-h-[180px]`
+
+## 3. Roteamento
+- `src/App.tsx`: trocar `<Route index element={<Dashboard />} />` por `<Route index element={<Hub />} />`.
+- Remover import de `Dashboard`.
+- Excluir `src/pages/Dashboard.tsx` (KPIs já presentes no módulo BI/Gestão).
+
+## 4. Sidebar
+- `AppSidebar.tsx`: renomear o item "Dashboard" para **"Início"** (ou **"Hub"**) apontando para `/`, mantendo o ícone `Home`. Manter o item BI separado.
+
+## 5. Detalhes
+- Cores via classes Tailwind diretas com gradiente (`from-blue-500 to-blue-700` etc.) para fidelidade ao visual de referência — sem mexer em design tokens do tema.
+- 100% responsivo (mobile: 1 coluna; desktop: 4 colunas).
+- Sem dependências novas, sem mudanças de banco.
 
 ## Ordem de execução
-1. Migração: `ADD COLUMN responsible_sector`, `UNIQUE(devis_id)` em services, e (se preciso) novo valor de enum `a_iniciar`.
-2. Estender `accept-devis-proposal` para criar o service após a cobrança.
-3. Adicionar badge "Case operacional criado" em `DevisDetail.tsx`.
-4. Ajustar listagem em `Operacao.tsx` para mostrar setor responsável e label "A iniciar".
+1. Criar `src/pages/Hub.tsx` com grid de cards.
+2. Atualizar `src/App.tsx` (rota index → Hub, remover import Dashboard).
+3. Renomear item da sidebar para "Início".
+4. Excluir `src/pages/Dashboard.tsx`.
