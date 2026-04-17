@@ -267,7 +267,11 @@ export default function Comercial() {
             )}
           </Card>
 
-          <div className="flex justify-end">
+          <div className="flex justify-between items-center gap-2">
+            <ToggleGroup type="single" value={view} onValueChange={(v) => v && setView(v as "list" | "kanban")}>
+              <ToggleGroupItem value="list" aria-label="Lista" className="gap-2"><List className="h-4 w-4" /> Lista</ToggleGroupItem>
+              <ToggleGroupItem value="kanban" aria-label="Kanban" className="gap-2"><LayoutGrid className="h-4 w-4" /> Kanban</ToggleGroupItem>
+            </ToggleGroup>
             <Dialog open={devisDialogOpen} onOpenChange={(o) => { setDevisDialogOpen(o); if (!o) setDevisForm(emptyDevis); }}>
               <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" /> Novo Devis</Button></DialogTrigger>
               <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
