@@ -1,17 +1,25 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { toast } from "sonner";
-import { Plus, Users, FileText, Search } from "lucide-react";
+import { Plus, Users, FileText, Eye, Pencil, CalendarIcon, Filter } from "lucide-react";
+import { format, parseISO } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 
 const devisStatusColors: Record<string, string> = {
   rascunho: "bg-muted text-muted-foreground",
@@ -21,125 +29,413 @@ const devisStatusColors: Record<string, string> = {
   convertido: "bg-warning/20 text-warning border-warning/30",
 };
 
+const statusLabels: Record<string, string> = {
+  rascunho: "Rascunho",
+  enviado: "Enviado",
+  aprovado: "Aprovado",
+  rejeitado: "Rejeitado",
+  convertido: "Convertido",
+};
+
+const fmtBRL = (n: number) =>
+  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(n) || 0);
+
+type ClientForm = {
+  id?: string;
+  name: string;
+  email: string;
+  phone: string;
+  document: string;
+  type: "PF" | "PJ";
+  notes: string;
+};
+
+const emptyClient: ClientForm = { name: "", email: "", phone: "", document: "", type: "PJ", notes: "" };
+
+type DevisForm = {
+  client_id: string;
+  meeting_date: Date | undefined;
+  commercial_responsible: string;
+  meeting_summary: string;
+  status: string;
+  total_amount: string;
+  down_payment_amount: string;
+  notes: string;
+  title: string;
+};
+
+const emptyDevis: DevisForm = {
+  client_id: "",
+  meeting_date: undefined,
+  commercial_responsible: "",
+  meeting_summary: "",
+  status: "rascunho",
+  total_amount: "",
+  down_payment_amount: "",
+  notes: "",
+  title: "",
+};
+
 export default function Comercial() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
+
   const [clientDialogOpen, setClientDialogOpen] = useState(false);
+  const [clientForm, setClientForm] = useState<ClientForm>(emptyClient);
+
   const [devisDialogOpen, setDevisDialogOpen] = useState(false);
-  const [clientForm, setClientForm] = useState({ name: "", email: "", phone: "", document: "", address: "", city: "" });
-  const [devisForm, setDevisForm] = useState({ title: "", description: "", total_amount: "", business_unit: "", client_id: "" });
+  const [devisForm, setDevisForm] = useState<DevisForm>(emptyDevis);
+
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterClient, setFilterClient] = useState<string>("all");
+  const [filterStart, setFilterStart] = useState<Date | undefined>();
+  const [filterEnd, setFilterEnd] = useState<Date | undefined>();
 
   const { data: clients = [] } = useQuery({
     queryKey: ["clients"],
-    queryFn: async () => { const { data } = await supabase.from("clients").select("*").order("name"); return data ?? []; },
+    queryFn: async () => {
+      const { data, error } = await supabase.from("clients").select("*").order("name");
+      if (error) throw error;
+      return data ?? [];
+    },
   });
 
   const { data: devisList = [] } = useQuery({
     queryKey: ["devis"],
-    queryFn: async () => { const { data } = await supabase.from("devis").select("*").order("created_at", { ascending: false }); return data ?? []; },
+    queryFn: async () => {
+      const { data, error } = await supabase.from("devis").select("*").order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
   });
 
-  const createClient = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabase.from("clients").insert(clientForm);
+  const { data: profiles = [] } = useQuery({
+    queryKey: ["profiles-all"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("profiles").select("user_id, full_name, email").order("full_name");
       if (error) throw error;
+      return data ?? [];
     },
-    onSuccess: () => { toast.success("Cliente criado!"); queryClient.invalidateQueries({ queryKey: ["clients"] }); setClientDialogOpen(false); setClientForm({ name: "", email: "", phone: "", document: "", address: "", city: "" }); },
+  });
+
+  const clientsById = useMemo(() => Object.fromEntries(clients.map((c: any) => [c.id, c])), [clients]);
+  const profilesById = useMemo(() => Object.fromEntries(profiles.map((p: any) => [p.user_id, p])), [profiles]);
+
+  const filteredDevis = useMemo(() => {
+    return devisList.filter((d: any) => {
+      if (filterStatus !== "all" && d.status !== filterStatus) return false;
+      if (filterClient !== "all" && d.client_id !== filterClient) return false;
+      if (filterStart && d.meeting_date && parseISO(d.meeting_date) < filterStart) return false;
+      if (filterEnd && d.meeting_date && parseISO(d.meeting_date) > filterEnd) return false;
+      return true;
+    });
+  }, [devisList, filterStatus, filterClient, filterStart, filterEnd]);
+
+  const saveClient = useMutation({
+    mutationFn: async (form: ClientForm) => {
+      const payload = {
+        name: form.name,
+        email: form.email || null,
+        phone: form.phone || null,
+        document: form.document || null,
+        type: form.type,
+        notes: form.notes || null,
+      };
+      if (form.id) {
+        const { error } = await supabase.from("clients").update(payload).eq("id", form.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("clients").insert(payload);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      toast.success("Cliente salvo!");
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+      setClientDialogOpen(false);
+      setClientForm(emptyClient);
+    },
     onError: (e: any) => toast.error(e.message),
   });
 
   const createDevis = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (form: DevisForm) => {
+      const total = Number(form.total_amount) || 0;
+      const down = form.down_payment_amount === "" ? total * 0.5 : Number(form.down_payment_amount) || 0;
+      const client = clientsById[form.client_id];
+      const title = form.title || (client ? `Devis ${client.name}` : "Novo Devis");
       const { error } = await supabase.from("devis").insert({
-        ...devisForm,
-        total_amount: Number(devisForm.total_amount) || 0,
-        client_id: devisForm.client_id || null,
+        client_id: form.client_id || null,
+        meeting_date: form.meeting_date ? format(form.meeting_date, "yyyy-MM-dd") : null,
+        commercial_responsible: form.commercial_responsible || null,
+        meeting_summary: form.meeting_summary || null,
+        status: form.status as any,
+        total_amount: total,
+        down_payment_amount: down,
+        notes: form.notes || null,
+        title,
         created_by: user?.id,
       });
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Orçamento criado!"); queryClient.invalidateQueries({ queryKey: ["devis"] }); setDevisDialogOpen(false); setDevisForm({ title: "", description: "", total_amount: "", business_unit: "", client_id: "" }); },
+    onSuccess: () => {
+      toast.success("Devis criado!");
+      queryClient.invalidateQueries({ queryKey: ["devis"] });
+      setDevisDialogOpen(false);
+      setDevisForm(emptyDevis);
+    },
     onError: (e: any) => toast.error(e.message),
   });
 
-  const updateDevisStatus = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const updates: any = { status };
-      if (status === "aprovado") updates.approved_at = new Date().toISOString();
-      const { error } = await supabase.from("devis").update(updates).eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => { toast.success("Status atualizado!"); queryClient.invalidateQueries({ queryKey: ["devis"] }); },
-  });
-
-  const fmt = (n: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n);
+  const openEditClient = (c: any) => {
+    setClientForm({
+      id: c.id,
+      name: c.name ?? "",
+      email: c.email ?? "",
+      phone: c.phone ?? "",
+      document: c.document ?? "",
+      type: (c.type as "PF" | "PJ") ?? "PJ",
+      notes: c.notes ?? "",
+    });
+    setClientDialogOpen(true);
+  };
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold font-display">Comercial</h1>
-        <p className="text-muted-foreground mt-1">Clientes e orçamentos</p>
+        <h1 className="text-3xl font-bold font-display">Devis</h1>
+        <p className="text-muted-foreground mt-1">Gestão comercial — clientes e propostas</p>
       </div>
 
-      <Tabs defaultValue="clients">
+      <Tabs defaultValue="devis">
         <TabsList>
+          <TabsTrigger value="devis"><FileText className="h-4 w-4 mr-2" />Devis</TabsTrigger>
           <TabsTrigger value="clients"><Users className="h-4 w-4 mr-2" />Clientes</TabsTrigger>
-          <TabsTrigger value="devis"><FileText className="h-4 w-4 mr-2" />Orçamentos</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="clients" className="space-y-4">
+        {/* DEVIS TAB */}
+        <TabsContent value="devis" className="space-y-4">
+          <Card className="p-4">
+            <div className="flex items-center gap-2 mb-3 text-sm font-medium text-muted-foreground">
+              <Filter className="h-4 w-4" /> Filtros
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+              <div>
+                <Label className="text-xs">Status</Label>
+                <Select value={filterStatus} onValueChange={setFilterStatus}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {Object.entries(statusLabels).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Cliente</Label>
+                <Select value={filterClient} onValueChange={setFilterClient}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {clients.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Data início</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full justify-start font-normal", !filterStart && "text-muted-foreground")}>
+                      <CalendarIcon className="h-4 w-4 mr-2" />
+                      {filterStart ? format(filterStart, "dd/MM/yyyy") : "Selecionar"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={filterStart} onSelect={setFilterStart} initialFocus className={cn("p-3 pointer-events-auto")} locale={ptBR} />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div>
+                <Label className="text-xs">Data fim</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full justify-start font-normal", !filterEnd && "text-muted-foreground")}>
+                      <CalendarIcon className="h-4 w-4 mr-2" />
+                      {filterEnd ? format(filterEnd, "dd/MM/yyyy") : "Selecionar"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={filterEnd} onSelect={setFilterEnd} initialFocus className={cn("p-3 pointer-events-auto")} locale={ptBR} />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+            {(filterStatus !== "all" || filterClient !== "all" || filterStart || filterEnd) && (
+              <div className="mt-3">
+                <Button variant="ghost" size="sm" onClick={() => { setFilterStatus("all"); setFilterClient("all"); setFilterStart(undefined); setFilterEnd(undefined); }}>
+                  Limpar filtros
+                </Button>
+              </div>
+            )}
+          </Card>
+
           <div className="flex justify-end">
-            <Dialog open={clientDialogOpen} onOpenChange={setClientDialogOpen}>
-              <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" /> Novo Cliente</Button></DialogTrigger>
-              <DialogContent>
-                <DialogHeader><DialogTitle>Novo Cliente</DialogTitle></DialogHeader>
-                <div className="space-y-3">
-                  <Input placeholder="Nome *" value={clientForm.name} onChange={(e) => setClientForm({ ...clientForm, name: e.target.value })} />
-                  <Input placeholder="Email" value={clientForm.email} onChange={(e) => setClientForm({ ...clientForm, email: e.target.value })} />
-                  <Input placeholder="Telefone" value={clientForm.phone} onChange={(e) => setClientForm({ ...clientForm, phone: e.target.value })} />
-                  <Input placeholder="Documento (CPF/CNPJ)" value={clientForm.document} onChange={(e) => setClientForm({ ...clientForm, document: e.target.value })} />
-                  <Input placeholder="Endereço" value={clientForm.address} onChange={(e) => setClientForm({ ...clientForm, address: e.target.value })} />
-                  <Input placeholder="Cidade" value={clientForm.city} onChange={(e) => setClientForm({ ...clientForm, city: e.target.value })} />
-                  <Button className="w-full" onClick={() => createClient.mutate()} disabled={!clientForm.name}>Salvar</Button>
+            <Dialog open={devisDialogOpen} onOpenChange={(o) => { setDevisDialogOpen(o); if (!o) setDevisForm(emptyDevis); }}>
+              <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" /> Novo Devis</Button></DialogTrigger>
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader><DialogTitle>Novo Devis</DialogTitle></DialogHeader>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2">
+                    <Label>Cliente *</Label>
+                    <Select value={devisForm.client_id} onValueChange={(v) => setDevisForm({ ...devisForm, client_id: v })}>
+                      <SelectTrigger><SelectValue placeholder="Selecionar cliente" /></SelectTrigger>
+                      <SelectContent>{clients.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Data da reunião</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className={cn("w-full justify-start font-normal", !devisForm.meeting_date && "text-muted-foreground")}>
+                          <CalendarIcon className="h-4 w-4 mr-2" />
+                          {devisForm.meeting_date ? format(devisForm.meeting_date, "dd/MM/yyyy") : "Selecionar"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar mode="single" selected={devisForm.meeting_date} onSelect={(d) => setDevisForm({ ...devisForm, meeting_date: d })} initialFocus className={cn("p-3 pointer-events-auto")} locale={ptBR} />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <div>
+                    <Label>Responsável comercial</Label>
+                    <Select value={devisForm.commercial_responsible} onValueChange={(v) => setDevisForm({ ...devisForm, commercial_responsible: v })}>
+                      <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
+                      <SelectContent>
+                        {profiles.map((p: any) => <SelectItem key={p.user_id} value={p.user_id}>{p.full_name || p.email}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label>Resumo da reunião</Label>
+                    <Textarea rows={3} value={devisForm.meeting_summary} onChange={(e) => setDevisForm({ ...devisForm, meeting_summary: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label>Status</Label>
+                    <Select value={devisForm.status} onValueChange={(v) => setDevisForm({ ...devisForm, status: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(statusLabels).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Valor total (R$)</Label>
+                    <Input type="number" step="0.01" value={devisForm.total_amount} onChange={(e) => {
+                      const total = e.target.value;
+                      const auto = total === "" ? "" : String((Number(total) * 0.5).toFixed(2));
+                      setDevisForm({ ...devisForm, total_amount: total, down_payment_amount: auto });
+                    }} />
+                  </div>
+                  <div>
+                    <Label>Valor de entrada (50% auto)</Label>
+                    <Input type="number" step="0.01" value={devisForm.down_payment_amount} onChange={(e) => setDevisForm({ ...devisForm, down_payment_amount: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label>Título (opcional)</Label>
+                    <Input value={devisForm.title} onChange={(e) => setDevisForm({ ...devisForm, title: e.target.value })} placeholder="Auto: Devis [Cliente]" />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label>Observações</Label>
+                    <Textarea rows={2} value={devisForm.notes} onChange={(e) => setDevisForm({ ...devisForm, notes: e.target.value })} />
+                  </div>
                 </div>
+                <DialogFooter>
+                  <Button onClick={() => createDevis.mutate(devisForm)} disabled={!devisForm.client_id || createDevis.isPending}>Salvar</Button>
+                </DialogFooter>
               </DialogContent>
             </Dialog>
           </div>
+
           <Card>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nome</TableHead><TableHead>Email</TableHead><TableHead>Telefone</TableHead><TableHead>Documento</TableHead><TableHead>Cidade</TableHead>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Valor Total</TableHead>
+                  <TableHead className="text-right">Entrada</TableHead>
+                  <TableHead>Data Reunião</TableHead>
+                  <TableHead>Responsável</TableHead>
+                  <TableHead className="w-20">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {clients.length === 0 ? (
-                  <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Nenhum cliente cadastrado</TableCell></TableRow>
-                ) : clients.map((c) => (
-                  <TableRow key={c.id}><TableCell className="font-medium">{c.name}</TableCell><TableCell>{c.email}</TableCell><TableCell>{c.phone}</TableCell><TableCell>{c.document}</TableCell><TableCell>{c.city}</TableCell></TableRow>
+                {filteredDevis.length === 0 ? (
+                  <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhum devis encontrado</TableCell></TableRow>
+                ) : filteredDevis.map((d: any) => (
+                  <TableRow key={d.id} className="cursor-pointer" onClick={() => navigate(`/comercial/devis/${d.id}`)}>
+                    <TableCell className="font-medium">{clientsById[d.client_id]?.name || "—"}</TableCell>
+                    <TableCell><Badge variant="outline" className={devisStatusColors[d.status] || ""}>{statusLabels[d.status] || d.status}</Badge></TableCell>
+                    <TableCell className="text-right">{fmtBRL(d.total_amount)}</TableCell>
+                    <TableCell className="text-right">{fmtBRL(d.down_payment_amount)}</TableCell>
+                    <TableCell>{d.meeting_date ? format(parseISO(d.meeting_date), "dd/MM/yyyy") : "—"}</TableCell>
+                    <TableCell>{profilesById[d.commercial_responsible]?.full_name || profilesById[d.commercial_responsible]?.email || "—"}</TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <Button size="icon" variant="ghost" onClick={() => navigate(`/comercial/devis/${d.id}`)}>
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
                 ))}
               </TableBody>
             </Table>
           </Card>
         </TabsContent>
 
-        <TabsContent value="devis" className="space-y-4">
+        {/* CLIENTS TAB */}
+        <TabsContent value="clients" className="space-y-4">
           <div className="flex justify-end">
-            <Dialog open={devisDialogOpen} onOpenChange={setDevisDialogOpen}>
-              <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" /> Novo Orçamento</Button></DialogTrigger>
+            <Dialog open={clientDialogOpen} onOpenChange={(o) => { setClientDialogOpen(o); if (!o) setClientForm(emptyClient); }}>
+              <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" /> Novo Cliente</Button></DialogTrigger>
               <DialogContent>
-                <DialogHeader><DialogTitle>Novo Orçamento</DialogTitle></DialogHeader>
+                <DialogHeader><DialogTitle>{clientForm.id ? "Editar Cliente" : "Novo Cliente"}</DialogTitle></DialogHeader>
                 <div className="space-y-3">
-                  <Input placeholder="Título *" value={devisForm.title} onChange={(e) => setDevisForm({ ...devisForm, title: e.target.value })} />
-                  <Input placeholder="Descrição" value={devisForm.description} onChange={(e) => setDevisForm({ ...devisForm, description: e.target.value })} />
-                  <Input type="number" placeholder="Valor Total (R$)" value={devisForm.total_amount} onChange={(e) => setDevisForm({ ...devisForm, total_amount: e.target.value })} />
-                  <Input placeholder="Negócio" value={devisForm.business_unit} onChange={(e) => setDevisForm({ ...devisForm, business_unit: e.target.value })} />
-                  <Select value={devisForm.client_id} onValueChange={(v) => setDevisForm({ ...devisForm, client_id: v })}>
-                    <SelectTrigger><SelectValue placeholder="Selecionar cliente" /></SelectTrigger>
-                    <SelectContent>{clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-                  </Select>
-                  <Button className="w-full" onClick={() => createDevis.mutate()} disabled={!devisForm.title}>Salvar</Button>
+                  <div>
+                    <Label>Nome *</Label>
+                    <Input value={clientForm.name} onChange={(e) => setClientForm({ ...clientForm, name: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label>Tipo *</Label>
+                    <Select value={clientForm.type} onValueChange={(v: "PF" | "PJ") => setClientForm({ ...clientForm, type: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="PF">Pessoa Física</SelectItem>
+                        <SelectItem value="PJ">Pessoa Jurídica</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label>Email</Label>
+                      <Input value={clientForm.email} onChange={(e) => setClientForm({ ...clientForm, email: e.target.value })} />
+                    </div>
+                    <div>
+                      <Label>Telefone</Label>
+                      <Input value={clientForm.phone} onChange={(e) => setClientForm({ ...clientForm, phone: e.target.value })} />
+                    </div>
+                  </div>
+                  <div>
+                    <Label>Documento (CPF/CNPJ)</Label>
+                    <Input value={clientForm.document} onChange={(e) => setClientForm({ ...clientForm, document: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label>Observações</Label>
+                    <Textarea rows={3} value={clientForm.notes} onChange={(e) => setClientForm({ ...clientForm, notes: e.target.value })} />
+                  </div>
                 </div>
+                <DialogFooter>
+                  <Button onClick={() => saveClient.mutate(clientForm)} disabled={!clientForm.name || saveClient.isPending}>Salvar</Button>
+                </DialogFooter>
               </DialogContent>
             </Dialog>
           </div>
@@ -147,29 +443,23 @@ export default function Comercial() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Título</TableHead><TableHead>Negócio</TableHead><TableHead className="text-right">Valor</TableHead><TableHead>Status</TableHead><TableHead>Ações</TableHead>
+                  <TableHead>Nome</TableHead><TableHead>Tipo</TableHead><TableHead>Email</TableHead><TableHead>Telefone</TableHead><TableHead>Documento</TableHead><TableHead className="w-20">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {devisList.length === 0 ? (
-                  <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Nenhum orçamento cadastrado</TableCell></TableRow>
-                ) : devisList.map((d) => (
-                  <TableRow key={d.id}>
-                    <TableCell className="font-medium">{d.title}</TableCell>
-                    <TableCell>{d.business_unit}</TableCell>
-                    <TableCell className="text-right">{fmt(Number(d.total_amount))}</TableCell>
-                    <TableCell><Badge variant="outline" className={devisStatusColors[d.status] || ""}>{d.status}</Badge></TableCell>
+                {clients.length === 0 ? (
+                  <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nenhum cliente cadastrado</TableCell></TableRow>
+                ) : clients.map((c: any) => (
+                  <TableRow key={c.id}>
+                    <TableCell className="font-medium">{c.name}</TableCell>
+                    <TableCell><Badge variant="outline">{c.type || "PJ"}</Badge></TableCell>
+                    <TableCell>{c.email}</TableCell>
+                    <TableCell>{c.phone}</TableCell>
+                    <TableCell>{c.document}</TableCell>
                     <TableCell>
-                      <Select value="" onValueChange={(v) => updateDevisStatus.mutate({ id: d.id, status: v })}>
-                        <SelectTrigger className="w-32 h-8"><SelectValue placeholder="Alterar" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="rascunho">Rascunho</SelectItem>
-                          <SelectItem value="enviado">Enviado</SelectItem>
-                          <SelectItem value="aprovado">Aprovado</SelectItem>
-                          <SelectItem value="rejeitado">Rejeitado</SelectItem>
-                          <SelectItem value="convertido">Convertido</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <Button size="icon" variant="ghost" onClick={() => openEditClient(c)}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
