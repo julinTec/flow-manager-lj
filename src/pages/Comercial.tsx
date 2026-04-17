@@ -16,13 +16,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { toast } from "sonner";
-import { Plus, Users, FileText, Eye, Pencil, CalendarIcon, Filter, LayoutGrid, List } from "lucide-react";
+import { Plus, Users, FileText, Eye, Pencil, CalendarIcon, Filter, LayoutGrid, List, Sparkles, Loader2 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { ALL_STATUSES, STATUS_LABELS as statusLabels, STATUS_BADGE_CLASSES as devisStatusColors } from "@/lib/devisStatus";
 import DevisKanban from "@/components/devis/DevisKanban";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import AISuggestionsBlock, { type AISuggestions } from "@/components/devis/AISuggestionsBlock";
 
 const fmtBRL = (n: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(n) || 0);
@@ -44,6 +45,7 @@ type DevisForm = {
   meeting_date: Date | undefined;
   commercial_responsible: string;
   meeting_summary: string;
+  meeting_report: string;
   status: string;
   total_amount: string;
   down_payment_amount: string;
@@ -56,6 +58,7 @@ const emptyDevis: DevisForm = {
   meeting_date: undefined,
   commercial_responsible: "",
   meeting_summary: "",
+  meeting_report: "",
   status: "rascunho",
   total_amount: "",
   down_payment_amount: "",
