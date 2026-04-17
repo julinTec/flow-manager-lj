@@ -16,26 +16,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { toast } from "sonner";
-import { Plus, Users, FileText, Eye, Pencil, CalendarIcon, Filter } from "lucide-react";
+import { Plus, Users, FileText, Eye, Pencil, CalendarIcon, Filter, LayoutGrid, List } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-
-const devisStatusColors: Record<string, string> = {
-  rascunho: "bg-muted text-muted-foreground",
-  enviado: "bg-primary/20 text-primary border-primary/30",
-  aprovado: "bg-success/20 text-success border-success/30",
-  rejeitado: "bg-destructive/20 text-destructive border-destructive/30",
-  convertido: "bg-warning/20 text-warning border-warning/30",
-};
-
-const statusLabels: Record<string, string> = {
-  rascunho: "Rascunho",
-  enviado: "Enviado",
-  aprovado: "Aprovado",
-  rejeitado: "Rejeitado",
-  convertido: "Convertido",
-};
+import { ALL_STATUSES, STATUS_LABELS as statusLabels, STATUS_BADGE_CLASSES as devisStatusColors } from "@/lib/devisStatus";
+import DevisKanban from "@/components/devis/DevisKanban";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 const fmtBRL = (n: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(n) || 0);
@@ -91,6 +78,7 @@ export default function Comercial() {
   const [filterClient, setFilterClient] = useState<string>("all");
   const [filterStart, setFilterStart] = useState<Date | undefined>();
   const [filterEnd, setFilterEnd] = useState<Date | undefined>();
+  const [view, setView] = useState<"list" | "kanban">("list");
 
   const { data: clients = [] } = useQuery({
     queryKey: ["clients"],
@@ -124,13 +112,13 @@ export default function Comercial() {
 
   const filteredDevis = useMemo(() => {
     return devisList.filter((d: any) => {
-      if (filterStatus !== "all" && d.status !== filterStatus) return false;
+      if (view === "list" && filterStatus !== "all" && d.status !== filterStatus) return false;
       if (filterClient !== "all" && d.client_id !== filterClient) return false;
       if (filterStart && d.meeting_date && parseISO(d.meeting_date) < filterStart) return false;
       if (filterEnd && d.meeting_date && parseISO(d.meeting_date) > filterEnd) return false;
       return true;
     });
-  }, [devisList, filterStatus, filterClient, filterStart, filterEnd]);
+  }, [devisList, filterStatus, filterClient, filterStart, filterEnd, view]);
 
   const saveClient = useMutation({
     mutationFn: async (form: ClientForm) => {
@@ -222,12 +210,12 @@ export default function Comercial() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
               <div>
-                <Label className="text-xs">Status</Label>
-                <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <Label className="text-xs">Status {view === "kanban" && <span className="text-[10px]">(desativado no Kanban)</span>}</Label>
+                <Select value={filterStatus} onValueChange={setFilterStatus} disabled={view === "kanban"}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos</SelectItem>
-                    {Object.entries(statusLabels).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                    {ALL_STATUSES.map((k) => <SelectItem key={k} value={k}>{statusLabels[k]}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -279,7 +267,11 @@ export default function Comercial() {
             )}
           </Card>
 
-          <div className="flex justify-end">
+          <div className="flex justify-between items-center gap-2">
+            <ToggleGroup type="single" value={view} onValueChange={(v) => v && setView(v as "list" | "kanban")}>
+              <ToggleGroupItem value="list" aria-label="Lista" className="gap-2"><List className="h-4 w-4" /> Lista</ToggleGroupItem>
+              <ToggleGroupItem value="kanban" aria-label="Kanban" className="gap-2"><LayoutGrid className="h-4 w-4" /> Kanban</ToggleGroupItem>
+            </ToggleGroup>
             <Dialog open={devisDialogOpen} onOpenChange={(o) => { setDevisDialogOpen(o); if (!o) setDevisForm(emptyDevis); }}>
               <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" /> Novo Devis</Button></DialogTrigger>
               <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -324,7 +316,7 @@ export default function Comercial() {
                     <Select value={devisForm.status} onValueChange={(v) => setDevisForm({ ...devisForm, status: v })}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {Object.entries(statusLabels).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                        {ALL_STATUSES.map((k) => <SelectItem key={k} value={k}>{statusLabels[k]}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
@@ -356,40 +348,44 @@ export default function Comercial() {
             </Dialog>
           </div>
 
-          <Card>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Valor Total</TableHead>
-                  <TableHead className="text-right">Entrada</TableHead>
-                  <TableHead>Data Reunião</TableHead>
-                  <TableHead>Responsável</TableHead>
-                  <TableHead className="w-20">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredDevis.length === 0 ? (
-                  <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhum devis encontrado</TableCell></TableRow>
-                ) : filteredDevis.map((d: any) => (
-                  <TableRow key={d.id} className="cursor-pointer" onClick={() => navigate(`/comercial/devis/${d.id}`)}>
-                    <TableCell className="font-medium">{clientsById[d.client_id]?.name || "—"}</TableCell>
-                    <TableCell><Badge variant="outline" className={devisStatusColors[d.status] || ""}>{statusLabels[d.status] || d.status}</Badge></TableCell>
-                    <TableCell className="text-right">{fmtBRL(d.total_amount)}</TableCell>
-                    <TableCell className="text-right">{fmtBRL(d.down_payment_amount)}</TableCell>
-                    <TableCell>{d.meeting_date ? format(parseISO(d.meeting_date), "dd/MM/yyyy") : "—"}</TableCell>
-                    <TableCell>{profilesById[d.commercial_responsible]?.full_name || profilesById[d.commercial_responsible]?.email || "—"}</TableCell>
-                    <TableCell onClick={(e) => e.stopPropagation()}>
-                      <Button size="icon" variant="ghost" onClick={() => navigate(`/comercial/devis/${d.id}`)}>
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
+          {view === "kanban" ? (
+            <DevisKanban devis={filteredDevis} clientsById={clientsById} profilesById={profilesById} />
+          ) : (
+            <Card>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Valor Total</TableHead>
+                    <TableHead className="text-right">Entrada</TableHead>
+                    <TableHead>Data Reunião</TableHead>
+                    <TableHead>Responsável</TableHead>
+                    <TableHead className="w-20">Ações</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
+                </TableHeader>
+                <TableBody>
+                  {filteredDevis.length === 0 ? (
+                    <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhum devis encontrado</TableCell></TableRow>
+                  ) : filteredDevis.map((d: any) => (
+                    <TableRow key={d.id} className="cursor-pointer" onClick={() => navigate(`/comercial/devis/${d.id}`)}>
+                      <TableCell className="font-medium">{clientsById[d.client_id]?.name || "—"}</TableCell>
+                      <TableCell><Badge variant="outline" className={devisStatusColors[d.status] || ""}>{statusLabels[d.status] || d.status}</Badge></TableCell>
+                      <TableCell className="text-right">{fmtBRL(d.total_amount)}</TableCell>
+                      <TableCell className="text-right">{fmtBRL(d.down_payment_amount)}</TableCell>
+                      <TableCell>{d.meeting_date ? format(parseISO(d.meeting_date), "dd/MM/yyyy") : "—"}</TableCell>
+                      <TableCell>{profilesById[d.commercial_responsible]?.full_name || profilesById[d.commercial_responsible]?.email || "—"}</TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <Button size="icon" variant="ghost" onClick={() => navigate(`/comercial/devis/${d.id}`)}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Card>
+          )}
         </TabsContent>
 
         {/* CLIENTS TAB */}

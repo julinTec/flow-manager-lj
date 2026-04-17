@@ -1,0 +1,11 @@
+ALTER TYPE devis_status ADD VALUE IF NOT EXISTS 'reuniao_realizada';
+ALTER TYPE devis_status ADD VALUE IF NOT EXISTS 'proposta_em_geracao';
+ALTER TYPE devis_status ADD VALUE IF NOT EXISTS 'aguardando_validacao';
+ALTER TYPE devis_status ADD VALUE IF NOT EXISTS 'pronta_para_envio';
+ALTER TYPE devis_status ADD VALUE IF NOT EXISTS 'enviada_ao_cliente';
+ALTER TYPE devis_status ADD VALUE IF NOT EXISTS 'aguardando_aceite';
+ALTER TYPE devis_status ADD VALUE IF NOT EXISTS 'aceita';
+ALTER TYPE devis_status ADD VALUE IF NOT EXISTS 'rejeitada';
+ALTER TYPE devis_status ADD VALUE IF NOT EXISTS 'cobranca_pendente';
+ALTER TYPE devis_status ADD VALUE IF NOT EXISTS 'entrada_recebida';
+ALTER TYPE devis_status ADD VALUE IF NOT EXISTS 'enviado_para_operacao';
