@@ -39,7 +39,7 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 function AuthRoute() {
   const { user, loading } = useAuth();
   if (loading) return <LoadingScreen />;
-  if (user) return <Navigate to="/" replace />;
+  if (user) return <Navigate to="/hub" replace />;
   return <Auth />;
 }
 
@@ -51,9 +51,10 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <Routes>
+            <Route path="/" element={<Navigate to="/auth" replace />} />
             <Route path="/auth" element={<AuthRoute />} />
             <Route path="/proposta/aceite/:token" element={<AceitarProposta />} />
-            <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+            <Route path="/hub" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
               <Route index element={<Hub />} />
               <Route path="financeiro" element={<Financeiro />} />
               <Route path="conciliacao" element={<Conciliacao />} />

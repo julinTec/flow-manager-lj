@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/sidebar";
 
 const mainItems = [
-  { title: "Início", url: "/", icon: Home },
+  { title: "Início", url: "/hub", icon: Home },
   { title: "Comercial", url: "/comercial", icon: ShoppingCart },
   { title: "Financeiro", url: "/financeiro", icon: DollarSign },
   { title: "Conciliação", url: "/conciliacao", icon: ArrowLeftRight },
@@ -48,7 +48,7 @@ export function AppSidebar() {
   const { user, userRole, signOut } = useAuth();
 
   const isActive = (path: string) =>
-    path === "/" ? location.pathname === "/" : location.pathname.startsWith(path);
+    path === "/hub" ? location.pathname === "/hub" : location.pathname.startsWith(path);
 
   const filteredManagement = managementItems.filter(
     (item) => !item.adminOnly || userRole === "admin"
