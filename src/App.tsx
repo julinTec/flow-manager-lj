@@ -42,12 +42,6 @@ function AuthRoute() {
   return <Auth />;
 }
 
-function RootRoute() {
-  const { user, loading } = useAuth();
-  if (loading) return <LoadingScreen message="Abrindo sistema..." />;
-  return <Navigate to={user ? "/hub" : "/auth"} replace />;
-}
-
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -56,7 +50,7 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <Routes>
-            <Route path="/" element={<RootRoute />} />
+            <Route path="/" element={<AuthRoute />} />
             <Route path="/auth" element={<AuthRoute />} />
             <Route path="/proposta/aceite/:token" element={<AceitarProposta />} />
             <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
