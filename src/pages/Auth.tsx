@@ -21,7 +21,7 @@ export default function Auth() {
     if (error) {
       toast.error(error.message);
     } else {
-      navigate("/");
+      navigate("/hub", { replace: true });
     }
     setLoading(false);
   };

@@ -9,8 +9,7 @@ import {
   Shield,
   LogOut,
 } from "lucide-react";
-import { NavLink } from "@/components/NavLink";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import logoBanner from "@/assets/logo-banner.png";
 import {
@@ -28,7 +27,7 @@ import {
 } from "@/components/ui/sidebar";
 
 const mainItems = [
-  { title: "Início", url: "/", icon: Home },
+  { title: "Início", url: "/hub", icon: Home },
   { title: "Comercial", url: "/comercial", icon: ShoppingCart },
   { title: "Financeiro", url: "/financeiro", icon: DollarSign },
   { title: "Conciliação", url: "/conciliacao", icon: ArrowLeftRight },
@@ -45,10 +44,11 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
+  const navigate = useNavigate();
   const { user, userRole, signOut } = useAuth();
 
   const isActive = (path: string) =>
-    path === "/" ? location.pathname === "/" : location.pathname.startsWith(path);
+    path === "/hub" ? location.pathname === "/hub" : location.pathname.startsWith(path);
 
   const filteredManagement = managementItems.filter(
     (item) => !item.adminOnly || userRole === "admin"
@@ -75,11 +75,9 @@ export function AppSidebar() {
             <SidebarMenu>
               {mainItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={isActive(item.url)}>
-                    <NavLink to={item.url} end={item.url === "/"}>
+                  <SidebarMenuButton isActive={isActive(item.url)} onClick={() => navigate(item.url)}>
                       <item.icon className="h-4 w-4" />
                       {!collapsed && <span>{item.title}</span>}
-                    </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -93,11 +91,9 @@ export function AppSidebar() {
             <SidebarMenu>
               {filteredManagement.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={isActive(item.url)}>
-                    <NavLink to={item.url}>
+                  <SidebarMenuButton isActive={isActive(item.url)} onClick={() => navigate(item.url)}>
                       <item.icon className="h-4 w-4" />
                       {!collapsed && <span>{item.title}</span>}
-                    </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}

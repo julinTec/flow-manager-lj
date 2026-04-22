@@ -55,6 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setUserRole(null);
       }
+      setLoading(false);
     });
 
     (async () => {
@@ -65,9 +66,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(session?.user ?? null);
         if (session?.user) {
           fetchRole(session.user.id);
+        } else {
+          setUserRole(null);
         }
       } catch (e) {
         console.error("Auth init error", e);
+        if (mounted) {
+          setSession(null);
+          setUser(null);
+          setUserRole(null);
+        }
       } finally {
         if (mounted) setLoading(false);
       }
