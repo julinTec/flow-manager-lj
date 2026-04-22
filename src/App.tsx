@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { AppLayout } from "@/components/AppLayout";
+import { LoadingScreen } from "@/components/LoadingScreen";
 import Auth from "./pages/Auth";
 import Hub from "./pages/Hub";
 import Financeiro from "./pages/Financeiro";
@@ -22,14 +23,14 @@ const queryClient = new QueryClient();
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
-  if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Carregando...</div>;
+  if (loading) return <LoadingScreen />;
   if (!user) return <Navigate to="/auth" replace />;
   return <>{children}</>;
 }
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { user, loading, userRole } = useAuth();
-  if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Carregando...</div>;
+  if (loading) return <LoadingScreen />;
   if (!user) return <Navigate to="/auth" replace />;
   if (userRole !== "admin") return <Navigate to="/" replace />;
   return <>{children}</>;
@@ -37,7 +38,7 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 
 function AuthRoute() {
   const { user, loading } = useAuth();
-  if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Carregando...</div>;
+  if (loading) return <LoadingScreen />;
   if (user) return <Navigate to="/" replace />;
   return <Auth />;
 }
