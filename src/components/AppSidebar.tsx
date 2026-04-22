@@ -9,8 +9,7 @@ import {
   Shield,
   LogOut,
 } from "lucide-react";
-import { NavLink } from "@/components/NavLink";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import logoBanner from "@/assets/logo-banner.png";
 import {
@@ -45,6 +44,7 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
+  const navigate = useNavigate();
   const { user, userRole, signOut } = useAuth();
 
   const isActive = (path: string) =>
@@ -75,11 +75,9 @@ export function AppSidebar() {
             <SidebarMenu>
               {mainItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={isActive(item.url)}>
-                    <NavLink to={item.url} end={item.url === "/"}>
+                  <SidebarMenuButton isActive={isActive(item.url)} onClick={() => navigate(item.url)}>
                       <item.icon className="h-4 w-4" />
                       {!collapsed && <span>{item.title}</span>}
-                    </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -93,11 +91,9 @@ export function AppSidebar() {
             <SidebarMenu>
               {filteredManagement.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={isActive(item.url)}>
-                    <NavLink to={item.url}>
+                  <SidebarMenuButton isActive={isActive(item.url)} onClick={() => navigate(item.url)}>
                       <item.icon className="h-4 w-4" />
                       {!collapsed && <span>{item.title}</span>}
-                    </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}

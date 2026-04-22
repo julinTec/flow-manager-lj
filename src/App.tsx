@@ -37,8 +37,7 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AuthRoute() {
-  const { user, loading } = useAuth();
-  if (loading) return <LoadingScreen />;
+  const { user } = useAuth();
   if (user) return <Navigate to="/hub" replace />;
   return <Auth />;
 }
