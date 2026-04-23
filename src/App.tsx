@@ -6,9 +6,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { LoadingScreen } from "@/components/LoadingScreen";
+import Auth from "./pages/Auth";
 
 const AppLayout = lazy(() => import("@/components/AppLayout").then((module) => ({ default: module.AppLayout })));
-const Auth = lazy(() => import("./pages/Auth"));
 const Hub = lazy(() => import("./pages/Hub"));
 const Financeiro = lazy(() => import("./pages/Financeiro"));
 const Conciliacao = lazy(() => import("./pages/Conciliacao"));
@@ -45,11 +45,7 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 function AuthRoute() {
   const { user } = useAuth();
   if (user) return <Navigate to="/hub" replace />;
-  return (
-    <RouteShell message="Abrindo login...">
-      <Auth />
-    </RouteShell>
-  );
+  return <Auth />;
 }
 
 const App = () => (
@@ -61,7 +57,7 @@ const App = () => (
         <AuthProvider>
           <RouteShell message="Abrindo sistema...">
             <Routes>
-              <Route path="/" element={<AuthRoute />} />
+              <Route path="/" element={<Navigate to="/auth" replace />} />
               <Route path="/auth" element={<AuthRoute />} />
               <Route path="/proposta/aceite/:token" element={<AceitarProposta />} />
               <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
